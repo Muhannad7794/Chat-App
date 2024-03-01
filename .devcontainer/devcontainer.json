@@ -37,11 +37,18 @@
 				"GitHub.vscode-pull-request-github"
 			]
 		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/powershell:1": {},
+		"ghcr.io/devcontainers/features/python:1": {},
+		"ghcr.io/paul-gilber/devcontainer-features/yamllint-homebrew:1": {},
+		"ghcr.io/hspaans/devcontainer-features/django-upgrade:1": {}
 	}
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Uncomment the next line to run commands after the container is created.
 	// "postCreateCommand": "cat /etc/os-release",
 	// Configure tool-specific properties.
-	
 }
