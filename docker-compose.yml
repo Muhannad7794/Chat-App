@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  users_management_service:
+    build:
+      context: ./users_management_service
+      dockerfile: Dockerfile
+    volumes:
+      - users_management_volume:/users_management_service_dockerized
+    ports:
+      - "8000:8000"
+    image: users_management_service:latest
+    container_name: users_management_service
+    command: python manage.py runserver 0.0.0.0:8000
+
+volumes:
+  users_management_volume:
