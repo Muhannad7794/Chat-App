@@ -1,0 +1,13 @@
+Django
+channels
+djangorestframework
+drf-spectacular
+psycopg2-binary
+pytest
+pytest-django
+selenium
+requests
+requests-mock
+responses
+coverage
+python-dotenv

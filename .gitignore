@@ -74,4 +74,5 @@ MEDIA_ROOT/
 posters/
 gh_actions_reports/
 theory/
-```
+.gitignore
+/.gitignore

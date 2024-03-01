@@ -1,0 +1,17 @@
+{
+	"name": "Users Management Service",
+	"dockerComposeFile": [
+		"../../docker-compose.yml",
+		"docker-compose.yml"
+	],
+	"service": "users_management_service",
+	"workspaceFolder": "/users_management_service_dockerized",
+	"forwardPorts": [
+		8000,
+		3306,
+		8001
+	],
+	"features": {
+		"ghcr.io/devcontainers/features/powershell:1": {}
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"name": "Chat Service",
+	"dockerComposeFile": [
+		"../../docker-compose.yml",
+		"docker-compose.yml"
+	],
+	"service": "chat_service",
+	"workspaceFolder": "/chat_service_dockerized",
+	"forwardPorts": [
+		8000,
+        5432,
+		8002,
+        6379
+	],
+	"features": {
+		"ghcr.io/devcontainers/features/powershell:1": {}
+	}
+}
