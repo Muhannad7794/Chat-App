@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # third part apps:
     #local apps:
-    chat
+    'chat'
 ]
 
 MIDDLEWARE = [
