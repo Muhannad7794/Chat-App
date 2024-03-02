@@ -5,7 +5,7 @@ services:
       context: ./users_management_service
       dockerfile: Dockerfile
     volumes:
-      - users_management_volume:/users_management_service_dockerized
+      - ./users_management_service:/users_management_service_dockerized:cached  # Corrected bind mount
     ports:
       - "8000:8000"
     image: users_management_service:user_management
@@ -17,7 +17,7 @@ services:
       context: ./chat_service
       dockerfile: Dockerfile
     volumes:
-      - chat_service_volume:/chat_service_dockerized
+      - ./chat_service:/chat_service_dockerized:cached  # Corrected bind mount
     ports:
       - "8002:8000"
     image: chat_service:chat
@@ -30,7 +30,3 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-
-volumes:
-  users_management_volume:
-  chat_service_volume:

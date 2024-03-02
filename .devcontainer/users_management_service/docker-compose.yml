@@ -2,7 +2,5 @@ version: '3.8'
 services:
   users_management_service:
     volumes:
-      - ..:/workspaces:cached
-
+      - ./users_management_service:/users_management_service_dockerized:cached
     command: /bin/sh -c "while sleep 1000; do :; done"
- 
