@@ -13,5 +13,25 @@
 	],
 	"features": {
 		"ghcr.io/devcontainers/features/powershell:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"KevinRose.vsc-python-indent",
+				"ms-python.black-formatter",
+				"mhutchie.git-graph",
+				"donjayamanne.githistory",
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"GitHub.vscode-pull-request-github",
+				"oderwat.indent-rainbow",
+				"ms-python.isort",
+				"ZainChen.json",
+				"esbenp.prettier-vscode",
+				"ms-python.python",
+				"mechatroner.rainbow-csv",
+				"redhat.vscode-yaml"
+			]
+		}
 	}
 }
