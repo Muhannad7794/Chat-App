@@ -1,21 +1,18 @@
-version: '3.8'
+version: "3.8"
 services:
   users_management_service:
     build:
       context: ./users_management_service
       dockerfile: Dockerfile
     volumes:
-      - ./users_management_service:/users_management_service_dockerized:cached  # Corrected bind mount
+      - ./users_management_service:/users_management_service_dockerized:cached # Corrected bind mount
     ports:
       - "8000:8000"
     image: users_management_service:user_management
     container_name: users_management_service
     command: python manage.py runserver 0.0.0.0:8000
-    environment:
-      - DATABASE_HOST=${DATABASE_HOST} 
-      - DATABASE_NAME=${DATABASE_NAME}
-      - DATABASE_USER=${DATABASE_USER}
-      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+    env_file:
+      - ./.env
     depends_on:
       - users_mysql
 
@@ -24,20 +21,19 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
-      - MYSQL_DATABASE=${DATABASE_NAME} 
+      - MYSQL_DATABASE=${DATABASE_NAME}
       - MYSQL_USER=${DATABASE_USER}
       - MYSQL_PASSWORD=${DATABASE_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     ports:
       - "3308:3306"
 
-
   chat_service:
     build:
       context: ./chat_service
       dockerfile: Dockerfile
     volumes:
-      - ./chat_service:/chat_service_dockerized:cached  # Corrected bind mount
+      - ./chat_service:/chat_service_dockerized:cached # Corrected bind mount
     ports:
       - "8002:8000"
     image: chat_service:chat
