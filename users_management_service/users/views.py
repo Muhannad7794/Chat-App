@@ -1,7 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from django.contrib.auth.models import User
-from .serializers import UserSerializer
+from django.contrib.auth import authenticate, login
+from rest_framework.views import APIView
+from .serializers import UserSerializer, LoginSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -21,3 +23,28 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Serializer.save() triggers the email logic in the serializer
         serializer.save()
+
+
+class LoginView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            user = authenticate(
+                username=serializer.validated_data["username"],
+                password=serializer.validated_data["password"],
+            )
+            if user is not None:
+                login(request, user)
+                # If using token authentication, generate and return the token here
+                return Response(
+                    {"message": "User logged in successfully"},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"message": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

@@ -40,3 +40,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             user=user, defaults=validated_data
         )
         return user_profile
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)

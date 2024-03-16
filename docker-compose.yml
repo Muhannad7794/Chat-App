@@ -28,6 +28,7 @@ services:
     ports:
       - "3308:3306"
 
+
   chat_service:
     build:
       context: ./chat_service
