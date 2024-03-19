@@ -3,6 +3,9 @@ from django.core.mail import send_mail
 from rest_framework import serializers
 from django.conf import settings
 from .models import UserProfile
+from .tokens import account_activation_token
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -13,13 +16,26 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
+        user.is_active = False
+        user.save()
+
+        # Generate a token and uid
+        token = account_activation_token.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Create verification link
+        verification_link = "http://localhost:8000/user/verify/{uid}/{token}/".format(
+            uid=uid, token=token
+        )
 
         # Send confirmation email
         send_mail(
-            "Welcome to the Chat App!",
-            "Hello, thanks for registering. Please confirm your email address.",
-            settings.EMAIL_HOST_USER,  # Dynamically fetch the sender email address
-            [validated_data["email"]],
+            subject="Verify your Chat App account",
+            message="Please click the following link to verify your account: {0}".format(
+                verification_link
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
             fail_silently=False,
         )
 
