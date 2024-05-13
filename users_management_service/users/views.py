@@ -1,17 +1,24 @@
+from django.contrib.auth import get_user_model
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login
-from rest_framework.views import APIView
-from .serializers import UserSerializer, LoginSerializer
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
-from .tokens import account_activation_token
 from django.core.mail import send_mail
+from django.urls import reverse
 from django.conf import settings
-from django.utils.http import urlsafe_base64_decode
-from django.contrib.auth.tokens import default_token_generator
-from django.http import HttpResponse
+import uuid
+from .serializers import UserSerializer
+from rest_framework import serializers, views
+
+# authintication imports:
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.forms import AuthenticationForm
+
+User = get_user_model()
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -20,63 +27,71 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        # The response can be customized as needed
-        return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        user = serializer.save()
+        self.send_verification_email(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def send_verification_email(self, user):
+        verification_code = str(uuid.uuid4())
+        user.verification_code = verification_code
+        user.save()
+        verification_url = reverse("user-verify", args=[verification_code])
+        full_url = f"http://{settings.SITE_DOMAIN}{verification_url}"
+        send_mail(
+            "Verify your account",
+            f"Please verify your account by clicking this link: {full_url}",
+            settings.EMAIL_HOST_USER,
+            [user.email],
+            fail_silently=False,
         )
 
-    def perform_create(self, serializer):
-        user = serializer.save()  # This saves the User instance and returns it
-
-
-class LoginView(APIView):
-    def post(self, request, *args, **kwargs):
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            user = authenticate(
-                username=serializer.validated_data["username"],
-                password=serializer.validated_data["password"],
-            )
-            if user is not None:
-                login(request, user)
-                # If using token authentication, generate and return the token here
-                return Response(
-                    {"message": "User logged in successfully"},
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {"message": "Invalid credentials"},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class VerifyEmailView(APIView):
-    def get(self, request, uidb64, token, format=None):
-        try:
-            # Decode the user ID from base64
-            uid = urlsafe_base64_decode(uidb64).decode()
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            user = None
-
-        # Check that the user exists and the token is valid
-        if user is not None and account_activation_token.check_token(user, token):
-            user.is_active = True  # Activate the user account
+    @action(
+        detail=False, methods=["get"], url_path="verify/(?P<verification_code>[^/.]+)"
+    )
+    def verify_email(self, request, verification_code=None):
+        user = User.objects.filter(verification_code=verification_code).first()
+        if user and not user.is_active:
+            user.is_active = True
             user.save()
-            user.profile.email_confirmed = True
-            user.profile.save()
-            return HttpResponse(
-                "Email verified successfully. Please log in.", status=status.HTTP_200_OK
+            return Response(
+                {"message": "Email successfully verified and account activated."}
             )
-
         else:
-            # If the token is invalid or expired, return an error
-            return HttpResponse(
-                {"message": "Invalid verification link"},
+            return Response(
+                {"error": "Invalid verification code"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class CustomAuthToken(ObtainAuthToken):
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return Response(
+                {"detail": "You are already logged in."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Return a login form for GET requests
+        form = AuthenticationForm()
+        return Response({"form": form}, template_name="rest_framework/login.html")
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({"token": token.key, "user_id": user.pk, "email": user.email})
+
+
+class Logout(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    class DummySerializer(serializers.Serializer):
+        pass
+
+    serializer_class = DummySerializer  # Add a dummy serializer
+
+    def post(self, request):
+        request.user.auth_token.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

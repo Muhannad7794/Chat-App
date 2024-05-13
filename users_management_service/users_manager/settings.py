@@ -134,6 +134,12 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+# Inhereting from the AbstractUser model provided by Django
+AUTH_USER_MODEL = "users.CustomUser"
+
+# settings.py
+SITE_DOMAIN = "localhost:8001"
+
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
