@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import logout as django_logout
 
 User = get_user_model()
 
@@ -84,14 +85,20 @@ class CustomAuthToken(ObtainAuthToken):
         return Response({"token": token.key, "user_id": user.pk, "email": user.email})
 
 
-class Logout(views.APIView):
+class Logout(APIView):
     permission_classes = [IsAuthenticated]
 
-    class DummySerializer(serializers.Serializer):
-        pass
-
-    serializer_class = DummySerializer  # Add a dummy serializer
+    def get(self, request):
+        return self.logout(request)
 
     def post(self, request):
-        request.user.auth_token.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self.logout(request)
+
+    def logout(self, request):
+        # Delete the token if it exists
+        if hasattr(request.user, "auth_token") and request.user.auth_token:
+            request.user.auth_token.delete()
+        django_logout(request)  # Log out the session
+        return Response(
+            {"message": "Logged out successfully"}, status=status.HTTP_204_NO_CONTENT
+        )
