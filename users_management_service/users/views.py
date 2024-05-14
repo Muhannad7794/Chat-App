@@ -136,7 +136,6 @@ class Logout(APIView):
         return self.logout(request)
 
     def logout(self, request):
-        # Assuming you're using token authentication and want to delete the token
         if hasattr(request.user, "auth_token"):
             request.user.auth_token.delete()
         return Response(
