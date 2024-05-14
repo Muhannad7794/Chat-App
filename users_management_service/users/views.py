@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.mail import send_mail
@@ -7,16 +7,11 @@ from django.urls import reverse
 from django.conf import settings
 import uuid
 from .serializers import UserSerializer
-from rest_framework import serializers, views
-
-# authintication imports:
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth import logout as django_logout
+from django.contrib.auth.hashers import make_password
 
 User = get_user_model()
 
@@ -63,17 +58,55 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @action(detail=True, methods=["put"], url_path="update-profile")
+    def update_profile(self, request, pk=None):
+        user = self.get_object()
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status": "profile updated"}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"], url_path="change-password")
+    def change_password(self, request, pk=None):
+        user = self.get_object()
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+        if not user.check_password(old_password):
+            return Response(
+                {"error": "Incorrect password"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        user.set_password(new_password)
+        user.save()
+        return Response({"status": "password updated"}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="reset-password")
+    def reset_password(self, request):
+        email = request.data.get("email")
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        new_password = User.objects.make_random_password()
+        user.set_password(new_password)
+        user.save()
+        send_mail(
+            "Your new password",
+            f"Your new password is: {new_password}",
+            settings.EMAIL_HOST_USER,
+            [user.email],
+            fail_silently=False,
+        )
+        return Response(
+            {"status": "password reset and emailed"}, status=status.HTTP_200_OK
+        )
+
 
 class CustomAuthToken(ObtainAuthToken):
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return Response(
-                {"detail": "You are already logged in."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        # Return a login form for GET requests
-        form = AuthenticationForm()
-        return Response({"form": form}, template_name="rest_framework/login.html")
+        return Response()
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(
@@ -88,6 +121,14 @@ class CustomAuthToken(ObtainAuthToken):
 class Logout(APIView):
     permission_classes = [IsAuthenticated]
 
+    # Define a simple serializer to satisfy the schema generator
+    class DummySerializer(serializers.Serializer):
+        message = serializers.CharField(
+            read_only=True, default="Logged out successfully"
+        )
+
+    serializer_class = DummySerializer  # Assign the dummy serializer
+
     def get(self, request):
         return self.logout(request)
 
@@ -95,10 +136,9 @@ class Logout(APIView):
         return self.logout(request)
 
     def logout(self, request):
-        # Delete the token if it exists
-        if hasattr(request.user, "auth_token") and request.user.auth_token:
+        # Assuming you're using token authentication and want to delete the token
+        if hasattr(request.user, "auth_token"):
             request.user.auth_token.delete()
-        django_logout(request)  # Log out the session
         return Response(
             {"message": "Logged out successfully"}, status=status.HTTP_204_NO_CONTENT
         )
