@@ -2,6 +2,8 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -10,12 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-4(7u3axij_j7#qm=w2v0$mc54m1docjuntxwi0tz$%*q@6fqct"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
 
 # Application definition
@@ -28,9 +30,27 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # third part apps:
+    "rest_framework",
+    "channels",
+    "channels_redis",
+    "rest_framework.authtoken",
+    "drf_spectacular",
     # local apps:
     "chat",
 ]
+
+# Channels configuration
+ASGI_APPLICATION = "chat_manager.asgi.application"
+
+# Redis configuration for channel layers
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(os.getenv("REDIS_HOST", "localhost"), 6379)],
+        },
+    },
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -68,8 +88,12 @@ WSGI_APPLICATION = "chat_manager.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("CHAT_POSTGRES_DB"),
+        "USER": os.getenv("CHAT_POSTGRES_USER"),
+        "PASSWORD": os.getenv("CHAT_POSTGRES_PASSWORD"),
+        "HOST": os.getenv("CHAT_POSTGRES_HOST"),
+        "PORT": os.getenv("CHAT_POSTGRES_PORT", 5432),
     }
 }
 

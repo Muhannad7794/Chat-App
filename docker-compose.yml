@@ -40,13 +40,28 @@ services:
     image: chat_service:chat
     container_name: chat_service
     command: python manage.py runserver 0.0.0.0:8002
+    env_file:
+      - ./.env
     depends_on:
       - redis
+      - postgres
 
   redis:
     image: redis:latest
     ports:
       - "6379:6379"
+  
+  postgres:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${CHAT_POSTGRES_DB}
+      - POSTGRES_USER=${CHAT_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${CHAT_POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
 
 volumes:
   mysql_data:
+  postgres_data:
