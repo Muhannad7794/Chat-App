@@ -1,4 +1,4 @@
-FROM python:3
+FROM python:3.11.4
 ENV PYTHONUNBUFFERED=1
 WORKDIR /chat_service_dockerized
 
@@ -7,5 +7,4 @@ COPY . /chat_service_dockerized/
 
 # Install dependencies
 COPY requirements.txt /chat_service_dockerized/
-RUN pip install -r requirements.txt
-
+RUN pip install --no-cache-dir -r requirements.txt
