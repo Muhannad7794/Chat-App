@@ -1,4 +1,9 @@
 version: "3.8"
+
+networks:
+  my_network:
+    driver: bridge
+
 services:
   users_management_service:
     build:
@@ -15,6 +20,8 @@ services:
       - ./.env
     depends_on:
       - users_mysql
+    networks:
+      - my_network
 
   users_mysql:
     image: mysql:5.7
@@ -27,6 +34,8 @@ services:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     ports:
       - "3308:3306"
+    networks:
+      - my_network
 
   chat_service:
     build:
@@ -45,12 +54,16 @@ services:
       - redis
       - postgres
       - users_management_service
+    networks:
+      - my_network
 
   redis:
     image: redis:latest
     ports:
       - "6379:6379"
-  
+    networks:
+      - my_network
+
   postgres:
     image: postgres:13
     volumes:
@@ -61,6 +74,8 @@ services:
       - POSTGRES_PASSWORD=${CHAT_POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
+    networks:
+      - my_network
 
 volumes:
   mysql_data:
