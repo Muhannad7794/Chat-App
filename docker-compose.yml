@@ -5,9 +5,9 @@ services:
       context: ./users_management_service
       dockerfile: Dockerfile
     volumes:
-      - ./users_management_service:/users_management_service_dockerized:cached # Corrected bind mount
+      - ./users_management_service:/users_management_service_dockerized:cached
     ports:
-      - "8000:8000"
+      - "8001:8000"
     image: users_management_service:user_management
     container_name: users_management_service
     command: python manage.py runserver 0.0.0.0:8000
@@ -28,23 +28,23 @@ services:
     ports:
       - "3308:3306"
 
-
   chat_service:
     build:
       context: ./chat_service
       dockerfile: Dockerfile
     volumes:
-      - ./chat_service:/chat_service_dockerized:cached # Corrected bind mount
+      - ./chat_service:/chat_service_dockerized:cached
     ports:
       - "8002:8000"
     image: chat_service:chat
     container_name: chat_service
-    command: python manage.py runserver 0.0.0.0:8002
+    command: python manage.py runserver 0.0.0.0:8000
     env_file:
       - ./.env
     depends_on:
       - redis
       - postgres
+      - users_management_service
 
   redis:
     image: redis:latest

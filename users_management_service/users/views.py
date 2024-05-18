@@ -6,14 +6,18 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.conf import settings
 import uuid
+import logging
 from .serializers import UserSerializer
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import authentication_classes, permission_classes
 from django.contrib.auth.hashers import make_password
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -105,17 +109,28 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class CustomAuthToken(ObtainAuthToken):
-    def get(self, request, *args, **kwargs):
-        return Response()
-
     def post(self, request, *args, **kwargs):
+        logger.debug("CustomAuthToken POST request received")
         serializer = self.serializer_class(
             data=request.data, context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user_id": user.pk, "email": user.email})
+        if serializer.is_valid():
+            user = serializer.validated_data["user"]
+            token, created = Token.objects.get_or_create(user=user)
+            logger.debug(f"Token created for user {user.username}")
+            return Response({"token": token.key})
+        else:
+            logger.debug("Invalid data received")
+            return Response(serializer.errors, status=400)
+
+
+class ValidateTokenView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        logger.debug(f"Token validated for user: {request.user}")
+        return Response({"valid": True})
 
 
 class Logout(APIView):
