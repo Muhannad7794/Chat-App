@@ -156,3 +156,18 @@ class Logout(APIView):
         return Response(
             {"message": "Logged out successfully"}, status=status.HTTP_204_NO_CONTENT
         )
+
+
+class UserInfoView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        user_data = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            # Add other fields as needed
+        }
+        return Response(user_data)

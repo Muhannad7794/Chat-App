@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, CustomAuthToken, Logout, ValidateTokenView
+from .views import UserViewSet, CustomAuthToken, Logout, ValidateTokenView, UserInfoView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 # Create a router and register our viewsets with it.
@@ -23,4 +23,5 @@ urlpatterns = [
     path("api-token-auth/", CustomAuthToken.as_view(), name="api-token-auth"),
     path("validate-token/", ValidateTokenView.as_view(), name="validate-token"),
     path("logout/", Logout.as_view(), name="logout"),
+    path("user-info/", UserInfoView.as_view(), name="user-info"),
 ]

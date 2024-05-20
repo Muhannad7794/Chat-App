@@ -17,8 +17,17 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG")
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "users_management_service", "*"]
 
+ALLOWED_HOSTS = [
+    "*",
+    "localhost",
+    "127.0.0.1",
+    "users-management-service",
+    "chat-service",
+    "*.users-management-service",  # Allow any port on users-management-service
+    "*.chat-service",  # Allow any port on chat-service
+]
+print("ALLOWED_HOSTS:", os.environ.get("ALLOWED_HOSTS"))
 
 # Application definition
 
@@ -40,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",

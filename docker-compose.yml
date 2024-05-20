@@ -1,26 +1,48 @@
 version: "3.8"
 
 services:
-  users_management_service:
+  users-management-service:
     build:
-      context: ./users_management_service
-      dockerfile: Dockerfile
-    volumes:
-      - ./users_management_service:/users_management_service_dockerized:cached
+      context: ./users-management-service
+    container_name: users-management-service
     ports:
-      - "8001:8000"
-    image: users_management_service:user_management
-    container_name: users_management_service
-    command: python manage.py runserver 0.0.0.0:8000
+      - "8001:8001"
+    volumes:
+      - ./users-management-service:/users-management-service-dockerized:cached
+    command: python manage.py runserver 0.0.0.0:8001
     env_file:
       - ./.env
+    environment:
+      - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service
+    networks:
+      - backend
     depends_on:
       - users_mysql
 
+  chat-service:
+    build:
+      context: ./chat-service
+    container_name: chat-service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./chat-service:/chat-service-dockerized:cached
+    command: python manage.py runserver 0.0.0.0:8002
+    env_file:
+      - ./.env
+    environment:
+      - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service
+      - USERS_SERVICE_URL=http://users-management-service:8001
+    networks:
+      - backend
+    depends_on:
+      - postgres
+      - redis
+      - users-management-service
+
   users_mysql:
     image: mysql:5.7
-    volumes:
-      - mysql_data:/var/lib/mysql
+    container_name: users_mysql
     environment:
       - MYSQL_DATABASE=${DATABASE_NAME}
       - MYSQL_USER=${DATABASE_USER}
@@ -28,41 +50,40 @@ services:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     ports:
       - "3308:3306"
-
-  chat_service:
-    build:
-      context: ./chat_service
-      dockerfile: Dockerfile
+    networks:
+      - backend
     volumes:
-      - ./chat_service:/chat_service_dockerized:cached
-    ports:
-      - "8002:8000"
-    image: chat_service:chat
-    container_name: chat_service
-    command: python manage.py runserver 0.0.0.0:8000
-    env_file:
-      - ./.env
-    depends_on:
-      - redis
-      - postgres
-      - users_management_service
-
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
+      - mysql_data:/var/lib/mysql
 
   postgres:
     image: postgres:13
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    container_name: postgres
     environment:
       - POSTGRES_DB=${CHAT_POSTGRES_DB}
       - POSTGRES_USER=${CHAT_POSTGRES_USER}
       - POSTGRES_PASSWORD=${CHAT_POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
+    networks:
+      - backend
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    volumes:
+      - redis_data:/data
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
   mysql_data:
   postgres_data:
+  redis_data:

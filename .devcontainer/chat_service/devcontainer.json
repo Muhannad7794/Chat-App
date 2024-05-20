@@ -4,8 +4,8 @@
 		"../../docker-compose.yml",
 		"docker-compose.yml"
 	],
-	"service": "chat_service",
-	"workspaceFolder": "/chat_service_dockerized",
+	"service": "chat-service",
+	"workspaceFolder": "/chat-service-dockerized",
 	"forwardPorts": [
 		8000,
         5432,

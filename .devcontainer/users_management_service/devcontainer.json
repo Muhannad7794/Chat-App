@@ -4,8 +4,8 @@
 		"../../docker-compose.yml",
 		"docker-compose.yml"
 	],
-	"service": "users_management_service",
-	"workspaceFolder": "/users_management_service_dockerized",
+	"service": "users-management-service",
+	"workspaceFolder": "/users-management-service-dockerized",
 	"forwardPorts": [
 		8000,
 		3306,
