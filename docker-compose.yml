@@ -18,6 +18,7 @@ services:
       - backend
     depends_on:
       - users_mysql
+      - rabbitmq
 
   chat-service:
     build:
@@ -39,6 +40,7 @@ services:
       - postgres
       - redis
       - users-management-service
+      - rabbitmq
 
   users_mysql:
     image: mysql:5.7
@@ -79,6 +81,17 @@ services:
     volumes:
       - redis_data:/data
 
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"  # Default port for RabbitMQ
+      - "15672:15672"  # Management interface
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
@@ -87,3 +100,4 @@ volumes:
   mysql_data:
   postgres_data:
   redis_data:
+  rabbitmq_data:
