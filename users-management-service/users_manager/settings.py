@@ -166,6 +166,12 @@ REST_FRAMEWORK = {
     ],
 }
 
+# RabbitMQ Configuration
+RABBITMQ_HOST = "rabbitmq"
+RABBITMQ_PORT = 5672
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS")
+
 # Logging settings:
 LOGGING = {
     "version": 1,

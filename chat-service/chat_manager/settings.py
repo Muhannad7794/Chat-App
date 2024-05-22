@@ -127,6 +127,13 @@ CHANNEL_LAYERS = {
     },
 }
 
+# RabbitMQ Configuration
+RABBITMQ_HOST = "rabbitmq"
+RABBITMQ_PORT = 5672
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS")
+
+
 USERS_SERVICE_URL = os.getenv("USERS_SERVICE_URL", "http://localhost:8001")
 
 SPECTACULAR_SETTINGS = {
