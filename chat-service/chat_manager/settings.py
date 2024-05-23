@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import chat.utils
 import chat.middleware
 
+
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -130,8 +131,8 @@ CHANNEL_LAYERS = {
 # RabbitMQ Configuration
 RABBITMQ_HOST = "rabbitmq"
 RABBITMQ_PORT = 5672
-RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER")
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS")
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "default_username")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS", "default_password")
 
 
 USERS_SERVICE_URL = os.getenv("USERS_SERVICE_URL", "http://localhost:8001")

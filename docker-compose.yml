@@ -14,6 +14,8 @@ services:
       - ./.env
     environment:
       - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     networks:
       - backend
     depends_on:
@@ -34,6 +36,8 @@ services:
     environment:
       - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service
       - USERS_SERVICE_URL=http://users-management-service:8001
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     networks:
       - backend
     depends_on:

@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -169,8 +171,9 @@ REST_FRAMEWORK = {
 # RabbitMQ Configuration
 RABBITMQ_HOST = "rabbitmq"
 RABBITMQ_PORT = 5672
-RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER")
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS")
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "default_username")
+RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS", "default_password")
+
 
 # Logging settings:
 LOGGING = {
