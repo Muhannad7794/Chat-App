@@ -1,6 +1,7 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from .models import ChatRoom, Message
 from .serializers import ChatRoomSerializer, MessageSerializer
+from .dispatch import send_notification
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import logging
@@ -31,4 +32,15 @@ class MessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         sender = self.request.user
         logger.debug(f"Creating message from {sender}")
-        serializer.save(sender=sender)
+        message = serializer.save(sender=sender)
+
+        # Fetching all members of the chat room except the sender
+        room_members = message.chat_room.members.exclude(id=sender.id)
+        for member in room_members:
+            try:
+                send_notification(message.content, member.id)
+                logger.debug(
+                    f"Notification sent for message {message.id} to user {member.id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send notification: {str(e)}")

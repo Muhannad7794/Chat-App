@@ -15,6 +15,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.decorators import authentication_classes, permission_classes
 from django.contrib.auth.hashers import make_password
+from .rabbitmq import send_notification
+
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -53,8 +55,13 @@ class UserViewSet(viewsets.ModelViewSet):
         if user and not user.is_active:
             user.is_active = True
             user.save()
+            send_notification(
+                "user_notifications",
+                {"user_id": user.id, "message": "Your account has been activated."},
+            )
             return Response(
-                {"message": "Email successfully verified and account activated."}
+                {"message": "Email successfully verified and account activated."},
+                status=status.HTTP_200_OK,
             )
         else:
             return Response(
