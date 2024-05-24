@@ -7,11 +7,12 @@ WORKDIR /frontend-dockerized
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install project dependencies including Bootstrap
-RUN npm install && npm install bootstrap react-bootstrap
+# Install project dependencies including Bootstrap, React Bootstrap, Axios, and React Router
+RUN npm install && \
+    npm install bootstrap react-bootstrap axios react-router-dom
 
 # Copy the project files into the container
-COPY . /frontend-dockerized/
+COPY . .
 
 # Build the app
 RUN npm run build

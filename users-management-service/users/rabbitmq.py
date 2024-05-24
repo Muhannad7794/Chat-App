@@ -1,4 +1,4 @@
-# uers/rabbitmq.py
+# users/rabbitmq.py
 
 import pika
 import json
