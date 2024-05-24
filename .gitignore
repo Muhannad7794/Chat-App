@@ -76,3 +76,4 @@ gh_actions_reports/
 theory/
 .gitignore
 /.gitignore
+node_modules/

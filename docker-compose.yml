@@ -110,7 +110,6 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/frontend-dockerized:cached
-    command: npm start
     environment:
       - REACT_APP_USERS_SERVICE_URL=http://users-management-service:8001
       - REACT_APP_CHAT_SERVICE_URL=http://chat-service:8002
