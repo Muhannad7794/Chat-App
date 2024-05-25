@@ -116,6 +116,9 @@ services:
       - ENVIRONMENT=development
     networks:
       - backend
+    depends_on:
+      - users-management-service
+      - chat-service
 
 networks:
   backend:
