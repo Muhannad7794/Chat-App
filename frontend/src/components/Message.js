@@ -30,8 +30,9 @@ const Messages = ({ token }) => {
     event.preventDefault();
     const messageData = {
       content: newMessage,
-      chat_room: roomId, // Ensure this is part of the body
+      chat_room: roomId, // This assumes roomId is correctly populated
     };
+
     const response = await fetch(`http://localhost:8002/api/chat/messages/`, {
       method: "POST",
       headers: {
@@ -40,9 +41,10 @@ const Messages = ({ token }) => {
       },
       body: JSON.stringify(messageData),
     });
+
     if (response.ok) {
       const newMessage = await response.json();
-      setMessages([...messages, newMessage]); // Update local state
+      setMessages([...messages, newMessage]); // Append new message to local state
       setNewMessage(""); // Clear input field
     } else {
       alert("Failed to send message");
