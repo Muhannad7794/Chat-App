@@ -72,3 +72,18 @@ class CustomTokenAuthentication(BaseAuthentication):
 
         logger.debug(f"Authenticated user: {user_info}")
         return (user, token)
+
+
+def notify_users_message_sent(message_instance):
+    room_members = message_instance.chat_room.members.exclude(
+        id=message_instance.sender.id
+    )
+    for member in room_members:
+        if not member.is_online or member.active_room != message_instance.chat_room.id:
+            send_notification(
+                "message_notifications",
+                {
+                    "user_id": member.id,
+                    "message": f"New message in {message_instance.chat_room.name}: {message_instance.content[:30]}...",
+                },
+            )

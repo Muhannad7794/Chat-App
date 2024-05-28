@@ -1,4 +1,4 @@
-# chat_service/chat/dispatch.py
+# Enhanced chat_service/chat/dispatch.py
 import pika
 from django.conf import settings
 import json
@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def send_notification(message, user_id):
+def send_notification(notification_type, message):
     try:
         logger.debug("Connecting to RabbitMQ")
         credentials = pika.PlainCredentials(
@@ -20,11 +20,13 @@ def send_notification(message, user_id):
         )
         channel = connection.channel()
 
-        queue_name = "notifications"
+        queue_name = (
+            f"{notification_type}_notifications"  # Dynamic queue name based on type
+        )
         logger.debug(f"Declaring queue {queue_name}")
-        channel.queue_declare(queue=queue_name)
+        channel.queue_declare(queue=queue_name, durable=True)
 
-        body = json.dumps({"user_id": user_id, "message": message})
+        body = json.dumps(message)
         logger.debug(f"Publishing message: {body}")
         channel.basic_publish(
             exchange="",

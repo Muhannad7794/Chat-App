@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import ChatRoom, Message
 from django.contrib.auth import get_user_model
+from .dispatch import send_notification
 
 User = get_user_model()
 
@@ -26,6 +27,15 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             try:
                 user = User.objects.get(username=username)
                 chat_room.members.add(user)
+                # Send notification to each added member
+                send_notification(
+                    "room",
+                    {
+                        "message": f"You have been added to {chat_room.name}",
+                        "room": chat_room.name,
+                        "user_id": user.id,
+                    },
+                )
             except User.DoesNotExist:
                 continue  # Optionally handle errors or log them
         chat_room.save()
