@@ -8,18 +8,42 @@ const Messages = ({ token }) => {
   const { roomId } = useParams(); // Extract roomId from the URL
 
   useEffect(() => {
+    // Part of the Messages component in React
+
     const fetchMessages = async () => {
       const response = await fetch(
-        `http://localhost:8002/api/chat/messages/?chat_room=${roomId}`, // Ensure URL is correct as per the backend API
+        `http://localhost:8002/api/chat/messages/?chat_room=${roomId}`, // Now clearly specifying the room ID
         {
           headers: { Authorization: `Token ${token}` },
         }
       );
-      const data = await response.json();
       if (response.ok) {
+        const data = await response.json();
         setMessages(data);
       } else {
         alert("Failed to fetch messages");
+      }
+    };
+
+    const handleSendMessage = async (event) => {
+      event.preventDefault();
+      const response = await fetch(`http://localhost:8002/api/chat/messages/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: newMessage,
+          chat_room: roomId, // Ensure this is part of the body
+        }),
+      });
+      if (response.ok) {
+        const newMessage = await response.json();
+        setMessages([...messages, newMessage]);
+        setNewMessage("");
+      } else {
+        alert("Failed to send message");
       }
     };
 

@@ -28,17 +28,20 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Ensure the user is only seeing messages from chat rooms they are part of
-        user_rooms = ChatRoom.objects.filter(members=self.request.user)
-        return Message.objects.filter(chat_room__in=user_rooms)
+        # Retrieve the 'room_id' from the request if it exists
+        room_id = self.request.query_params.get("chat_room", None)
+        if room_id is not None:
+            # Filter messages that are only within the room and the user is a member of that room
+            return Message.objects.filter(
+                chat_room_id=room_id, chat_room__members=self.request.user
+            )
+        else:
+            # If no room_id is specified, do not return any messages
+            raise PermissionDenied("Chat room not specified.")
 
     def perform_create(self, serializer):
-        # Get chat_room directly from the validated data within the serializer
+        # As before, ensure the user is a member of the room
         chat_room = serializer.validated_data.get("chat_room")
-
-        # Check if the user is a member of the chat room
         if self.request.user not in chat_room.members.all():
             raise PermissionDenied("You are not a member of this room.")
-
-        # Save the message with the user as the sender
         serializer.save(sender=self.request.user)
