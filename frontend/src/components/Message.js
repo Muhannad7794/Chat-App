@@ -28,20 +28,21 @@ const Messages = ({ token }) => {
 
   const handleSendMessage = async (event) => {
     event.preventDefault();
-    const response = await fetch(
-      `http://localhost:8002/api/chat/messages/?chat_room=${roomId}`, // Adjust URL if needed, depending on backend API
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: newMessage }),
-      }
-    );
+    const messageData = {
+      content: newMessage,
+      chat_room: roomId, // Ensure this is part of the body
+    };
+    const response = await fetch(`http://localhost:8002/api/chat/messages/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messageData),
+    });
     if (response.ok) {
-      const newMessages = await response.json(); // Fetch new message list after posting
-      setMessages(newMessages);
+      const newMessage = await response.json();
+      setMessages([...messages, newMessage]); // Update local state
       setNewMessage(""); // Clear input field
     } else {
       alert("Failed to send message");

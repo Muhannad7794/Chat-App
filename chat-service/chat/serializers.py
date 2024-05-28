@@ -36,3 +36,10 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = "__all__"
+        read_only_fields = ["sender"]
+
+    def create(self, validated_data):
+        validated_data["sender"] = self.context[
+            "request"
+        ].user  # Set sender automatically
+        return super().create(validated_data)
