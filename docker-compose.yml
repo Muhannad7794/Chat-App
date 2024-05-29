@@ -46,6 +46,34 @@ services:
       - users-management-service
       - rabbitmq
 
+  translation-service:
+    build:
+      context: ./translation-service
+    container_name: translation-service
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./translation-service:/translation-service-dockerized:cached
+    command: python manage.py runserver 0.0.0.0:8003
+    env_file:
+      - ./.env
+    environment:
+      - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service,translations-service
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - USERS_SERVICE_URL=http://users-management-service:8001
+      - CHAT_SERVICE_URL=http://chat-service:8002
+      - AZURE_TRANSLATOR_KEY=${AZURE_TRANSLATOR_KEY}
+      - AZURE_TRANSLATOR_ENDPOINT=${AZURE_TRANSLATOR_ENDPOINT}
+      - AZURE_TRANSLATOR_REGION=${AZURE_TRANSLATOR_REGION}
+    networks:
+      - backend
+    depends_on:
+      - redis
+      - users-management-service
+      - chat-service
+      - rabbitmq
+
   users_mysql:
     image: mysql:5.7
     container_name: users_mysql
@@ -89,8 +117,8 @@ services:
     image: "rabbitmq:3-management"
     container_name: rabbitmq
     ports:
-      - "5672:5672"  
-      - "15672:15672" 
+      - "5672:5672"
+      - "15672:15672"
     env_file:
       - ./.env
     environment:
