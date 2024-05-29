@@ -147,6 +147,7 @@ services:
     depends_on:
       - users-management-service
       - chat-service
+      - translation-service
 
 networks:
   backend:
