@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Form, Button, Container, ListGroup, Dropdown } from "react-bootstrap";
+import axios from "axios"; // Using axios for HTTP requests
 
 const Messages = ({ token }) => {
   const [messages, setMessages] = useState([]);
@@ -9,53 +10,55 @@ const Messages = ({ token }) => {
   const { roomId } = useParams(); // Extract roomId from the URL
 
   useEffect(() => {
-    fetchMessages(language); // Call fetchMessages with language as a parameter
+    fetchMessages(); // Removed language as an argument to use the state directly
   }, [token, roomId, language]);
 
-  const fetchMessages = async (lang) => {
-    const response = await fetch(
-      `http://localhost:8002/api/chat/messages/?chat_room=${roomId}&lang=${lang}`,
-      { headers: { Authorization: `Token ${token}` } }
-    );
-    if (response.ok) {
-      const data = await response.json();
-      setMessages(data);
-    } else {
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get(
+        `http://localhost:8002/api/chat/messages/`,
+        {
+          params: { chat_room: roomId, lang: language },
+          headers: { Authorization: `Token ${token}` },
+        }
+      );
+      setMessages(response.data);
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
       alert("Failed to fetch messages");
     }
   };
 
   const handleLanguageChange = async (newLanguage) => {
     setLanguage(newLanguage);
-    fetchMessages(newLanguage); // Immediately re-fetch messages with the new language
+    // This triggers the useEffect to refetch messages with the new language
   };
 
   const handleSendMessage = async (event) => {
     event.preventDefault();
-    const messageData = {
-      content: newMessage,
-      chat_room: roomId,
-    };
-
-    const response = await fetch(`http://localhost:8002/api/chat/messages/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(messageData),
-    });
-
-    if (response.ok) {
-      const newMsg = await response.json();
-      setMessages([...messages, newMsg]); // Append new message to local state
+    try {
+      const response = await axios.post(
+        `http://localhost:8002/api/chat/messages/`,
+        {
+          content: newMessage,
+          chat_room: roomId,
+        },
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      setMessages([...messages, response.data]); // Append new message to local state
       setNewMessage(""); // Clear input field
-    } else {
+    } catch (error) {
+      console.error("Failed to send message:", error);
       alert("Failed to send message");
     }
   };
 
-  const languages = ["en", "es", "fr", "de"]; // Extend with all supported languages
+  const languages = ["en", "es", "fr", "de", "it", "ru", "zh", "ar", "ja"]; // Expanded with additional global languages
 
   return (
     <Container>

@@ -43,13 +43,15 @@ def handle_translation_request(request):
 
 
 def translate_message(text, target_lang):
-    endpoint = settings.AZURE_TRANSLATOR_ENDPOINT
-    path = f"/translate?api-version=3.0&to={target_lang}"
+    endpoint = settings.AZURE_TRANSLATOR_ENDPOINT + "/translate?api-version=3.0"
+    params = "&to=" + target_lang
+    url = endpoint + params
     headers = {
         "Ocp-Apim-Subscription-Key": settings.AZURE_TRANSLATOR_KEY,
         "Ocp-Apim-Subscription-Region": settings.AZURE_TRANSLATOR_REGION,
         "Content-type": "application/json",
     }
     body = [{"text": text}]
-    response = requests.post(endpoint + path, headers=headers, json=body).json()
-    return response[0]["translations"][0]["text"] if response else text
+    response = requests.post(url, headers=headers, json=body)
+    response_json = response.json()
+    return response_json[0]["translations"][0]["text"] if response_json else text
