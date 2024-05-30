@@ -1,20 +1,24 @@
-#chat/ translation_handler.py
 import json
 import requests
 from django.conf import settings
-from .services import send_notification, send_translation_request
+import pika
+import logging
+
+logger = logging.getLogger(__name__)
+
+language_preferences = {}
 
 
 def get_language_preference(user_id, room_id):
-    # Fetch the language preference from a cache or a settings database
-    # Placeholder for cache retrieval logic
-    pass
+    return language_preferences.get((user_id, room_id), "default")
 
 
 def set_language_preference(user_id, room_id, language_code):
-    # Set the language preference in a cache or a settings database
-    # Placeholder for cache setting logic
-    pass
+    language_preferences[(user_id, room_id)] = language_code
+    logger.debug(
+        f"Set language preference for user {user_id} in room {room_id} to {language_code}"
+    )
+    send_language_change_notification(user_id, room_id, language_code)
 
 
 def translate_message(message, target_language):
@@ -34,9 +38,33 @@ def translate_message(message, target_language):
         return message  # Fallback to the original message if translation fails
 
 
-def handle_translation_response(translated_message, user_id, room_id):
-    # Logic to send the translated message back to the client
-    send_notification(
-        "translated_message",
-        {"room_id": room_id, "user_id": user_id, "message": translated_message},
+def get_rabbit_connection():
+    credentials = pika.PlainCredentials(
+        settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
     )
+    parameters = pika.ConnectionParameters(
+        host=settings.RABBITMQ_HOST, credentials=credentials
+    )
+    return pika.BlockingConnection(parameters)
+
+
+def send_language_change_notification(user_id, room_id, language_code):
+    connection = None
+    try:
+        connection = get_rabbit_connection()
+        channel = connection.channel()
+        queue_name = "language_change_notifications"
+        channel.queue_declare(queue=queue_name, durable=True)
+        message = {
+            "user_id": user_id,
+            "room_id": room_id,
+            "language_code": language_code,
+        }
+        body = json.dumps(message)
+        channel.basic_publish(exchange="", routing_key=queue_name, body=body)
+        logger.debug(f"Published language change notification: {body}")
+    except Exception as e:
+        logger.error(f"Failed to send language change notification: {e}")
+    finally:
+        if connection and connection.is_open:
+            connection.close()

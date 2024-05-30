@@ -1,4 +1,4 @@
-#chat/urls.py
+# chat/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -16,4 +16,9 @@ urlpatterns = [
     path(
         "docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"
     ),  # Swagger-UI
+    path(
+        "set-language/",
+        ChatRoomViewSet.as_view({"post": "set_language"}),
+        name="set-language",
+    ),
 ]

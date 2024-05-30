@@ -1,11 +1,15 @@
-# chat/views.py
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+from rest_framework.response import Response
+from rest_framework.decorators import action
 from .models import ChatRoom, Message
 from .serializers import ChatRoomSerializer, MessageSerializer
-from .services import send_notification
-from .translation_handler import get_language_preference, translate_message
+from .translation_handler import (
+    set_language_preference,
+    get_language_preference,
+    translate_message,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,6 +23,25 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ChatRoom.objects.filter(members=self.request.user)
+
+    @action(
+        detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
+    def set_language(self, request):
+        chat_room_id = request.data.get("chat_room")
+        language = request.data.get("language")
+        if not chat_room_id or not language:
+            return Response(
+                {"detail": "Chat room and language are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        chat_room = ChatRoom.objects.filter(
+            id=chat_room_id, members=request.user
+        ).first()
+        if not chat_room:
+            raise PermissionDenied("You are not a member of this room.")
+        set_language_preference(request.user.id, chat_room.id, language)
+        return Response({"detail": "Language preference set successfully."})
 
 
 class MessageViewSet(viewsets.ModelViewSet):

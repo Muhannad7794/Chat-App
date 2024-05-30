@@ -32,7 +32,23 @@ const Messages = ({ token }) => {
 
   const handleLanguageChange = async (newLanguage) => {
     setLanguage(newLanguage);
-    // This triggers the useEffect to refetch messages with the new language
+    try {
+      await axios.post(
+        `http://localhost:8002/api/chat/set-language/`,
+        {
+          chat_room: roomId,
+          language: newLanguage,
+        },
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Failed to set language:", error);
+    }
   };
 
   const handleSendMessage = async (event) => {
