@@ -1,3 +1,4 @@
+# translation/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.cache import cache

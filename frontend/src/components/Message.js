@@ -9,13 +9,12 @@ const Messages = ({ token }) => {
   const { roomId } = useParams(); // Extract roomId from the URL
 
   useEffect(() => {
-    fetchMessages();
-    // Assuming there's an endpoint to fetch the current language setting
+    fetchMessages(language); // Call fetchMessages with language as a parameter
   }, [token, roomId, language]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (lang) => {
     const response = await fetch(
-      `http://localhost:8002/api/chat/messages/?chat_room=${roomId}&lang=${language}`,
+      `http://localhost:8002/api/chat/messages/?chat_room=${roomId}&lang=${lang}`,
       { headers: { Authorization: `Token ${token}` } }
     );
     if (response.ok) {
@@ -28,7 +27,7 @@ const Messages = ({ token }) => {
 
   const handleLanguageChange = async (newLanguage) => {
     setLanguage(newLanguage);
-    // Logic to update language setting and re-fetch messages
+    fetchMessages(newLanguage); // Immediately re-fetch messages with the new language
   };
 
   const handleSendMessage = async (event) => {
