@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     "channels_redis",
     "drf_spectacular",
     # local apps
-    "translation"
+    "translation",
 ]
 
 MIDDLEWARE = [
@@ -78,6 +78,10 @@ WSGI_APPLICATION = "translation_manager.wsgi.application"
 
 DATABASES = {}
 
+# Azure translation service configuration
+AZURE_TRANSLATOR_ENDPOINT = os.getenv("AZURE_TRANSLATOR_ENDPOINT")
+AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
+# AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

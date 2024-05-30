@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 #notifications imports
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
-from .dispatch import send_notification
+from .services import send_notification
 
 User = get_user_model()
 
