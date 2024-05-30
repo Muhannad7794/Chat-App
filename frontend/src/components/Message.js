@@ -1,3 +1,4 @@
+// frontend/src/components/Message.js
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Form, Button, Container, ListGroup, Dropdown } from "react-bootstrap";
@@ -10,7 +11,7 @@ const Messages = ({ token }) => {
   const { roomId } = useParams(); // Extract roomId from the URL
 
   useEffect(() => {
-    fetchMessages(); // Removed language as an argument to use the state directly
+    fetchMessages();
   }, [token, roomId, language]);
 
   const fetchMessages = async () => {

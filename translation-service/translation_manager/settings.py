@@ -153,6 +153,10 @@ RABBITMQ_HOST = "rabbitmq"
 RABBITMQ_PORT = 5672
 RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "default_username")
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASS", "default_password")
+RABBITMQ_URL = (
+    f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/"
+)
+
 
 # URLS of other services:
 USERS_SERVICE_URL = os.getenv("USERS_SERVICE_URL", "http://localhost:8001")
@@ -163,4 +167,45 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for managing real-time translations",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
+    "django": {
+        "handlers": ["console"],
+        "level": "INFO",
+        "propagate": True,
+    },
+    "django.request": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+        "propagate": False,
+    },
+    "django.db.backends": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+        "propagate": False,
+    },
 }
