@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import ChatRoom, Message
 from django.contrib.auth import get_user_model
 from .dispatch import send_notification, send_translation_request
-from .translation_handler import get_language_preference  # Adjusted import
+from .translation_handler import get_language_preference
 
 User = get_user_model()
 
@@ -57,13 +57,9 @@ class MessageSerializer(serializers.ModelSerializer):
         # Fetch language preferences for all members in the room
         members = message_instance.chat_room.members.all()
         for member in members:
-            lang = get_language_preference(
-                member.id, room_id
-            )  # Use the centralized function
+            lang = get_language_preference(member.id, room_id)
             if lang and lang != "default":
-                send_translation_request(
-                    content, lang, "chat_message", room_id, member.id
-                )
+                send_translation_request(content, lang, room_id, member.id)
             else:
                 send_notification(
                     "message", {"text": content, "room": room_id, "user_id": member.id}

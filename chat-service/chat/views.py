@@ -10,6 +10,7 @@ from .translation_handler import (
     get_language_preference,
     translate_message,
 )
+from .dispatch import send_notification, send_translation_request, get_rabbit_connection
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,3 @@
-# chat/dispatch.py
 import pika
 from django.conf import settings
 import json
@@ -38,19 +37,29 @@ def send_notification(notification_type, message):
         logger.debug("RabbitMQ connection closed")
 
 
-def send_translation_request(message_id, text, target_lang, callback_queue):
-    connection = get_rabbit_connection()
-    channel = connection.channel()
-    channel.queue_declare(queue="translation_request_queue", durable=True)
-    message = json.dumps(
-        {
-            "id": message_id,
-            "text": text,
-            "lang": target_lang,
-            "callback_queue": callback_queue,
-        }
-    )
-    channel.basic_publish(
-        exchange="", routing_key="translation_request_queue", body=message
-    )
-    connection.close()
+def send_translation_request(text, target_language, room_id, user_id):
+    connection = None
+    try:
+        logger.debug("Connecting to RabbitMQ for translation request")
+        connection = get_rabbit_connection()
+        channel = connection.channel()
+        queue_name = "translation_request_queue"
+        logger.debug(f"Declaring queue {queue_name}")
+        channel.queue_declare(queue=queue_name, durable=True)
+        message = json.dumps(
+            {
+                "text": text,
+                "lang": target_language,
+                "room_id": room_id,
+                "user_id": user_id,
+            }
+        )
+        logger.debug(f"Publishing translation request: {message}")
+        channel.basic_publish(exchange="", routing_key=queue_name, body=message)
+        logger.debug("Translation request published successfully")
+    except Exception as e:
+        logger.error(f"Failed to send translation request: {e}")
+    finally:
+        if connection and connection.is_open:
+            connection.close()
+        logger.debug("RabbitMQ connection closed")
