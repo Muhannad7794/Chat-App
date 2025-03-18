@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react"; // Ensure useEffect is imported
+// src/App.js
+import React, { useState, useEffect } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import ChatRooms from "./components/ChatRooms";
@@ -8,16 +9,21 @@ import Messages from "./components/Message";
 import { Container, Navbar, Nav } from "react-bootstrap";
 
 const App = () => {
+  // Retrieve token and username from localStorage if available
   const [token, setToken] = useState(localStorage.getItem("token"));
+  const [username, setUsername] = useState(localStorage.getItem("username"));
   const [currentRoomId, setCurrentRoomId] = useState("");
 
   useEffect(() => {
-    // You can add more logic here if you need to validate the token
+    // Additional token validation logic can be added here if needed.
   }, []);
 
-  const handleLogin = (newToken) => {
+  // Modified handleLogin to receive both token and username
+  const handleLogin = (newToken, newUsername) => {
     setToken(newToken);
+    setUsername(newUsername);
     localStorage.setItem("token", newToken);
+    localStorage.setItem("username", newUsername);
   };
 
   return (
@@ -48,7 +54,11 @@ const App = () => {
             path="/chat-rooms/:roomId/messages"
             element={
               token ? (
-                <Messages token={token} roomId={currentRoomId} />
+                <Messages
+                  token={token}
+                  currentUsername={username}
+                  roomId={currentRoomId}
+                />
               ) : (
                 <Navigate replace to="/login" />
               )

@@ -1,11 +1,12 @@
+// scr/components/Login.js
 import React, { useState } from "react";
 import { Button, Form, Container } from "react-bootstrap";
-import { useNavigate } from "react-router-dom"; // Ensure this import is present
+import { useNavigate } from "react-router-dom";
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate(); // Correctly declared navigate using the hook
+  const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -16,9 +17,12 @@ const Login = ({ onLogin }) => {
     });
     const data = await response.json();
     if (response.ok) {
-      onLogin(data.token);
+      // Save token and username to localStorage
       localStorage.setItem("token", data.token);
-      navigate("/chat-rooms"); // Use navigate to redirect
+      localStorage.setItem("username", username);
+      // Call the parent onLogin callback with both token and username
+      onLogin(data.token, username);
+      navigate("/chat-rooms");
     } else {
       alert("Login failed!");
     }
