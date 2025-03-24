@@ -1,10 +1,11 @@
 # chat/models.py
 from django.db import models
 from django.contrib.auth import get_user_model
-#notifications imports
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
-from .services import send_notification
+
+# Import the new publisher function from dispatch.py
+from .dispatch import publish_user_invited
 
 User = get_user_model()
 
@@ -29,13 +30,15 @@ class Message(models.Model):
 
 @receiver(m2m_changed, sender=ChatRoom.members.through)
 def notify_user_added_to_room(sender, instance, action, pk_set, **kwargs):
+    """
+    Signal receiver that fires whenever members are added to a ChatRoom.
+    When new users are added (post_add), publish an event to RabbitMQ
+    indicating the user was invited to the room.
+    """
     if action == "post_add":
         for user_id in pk_set:
+            # Avoid notifying the room admin about being added to their own room
             if user_id != instance.admin_id:
-                send_notification(
-                    "room_notifications",
-                    {
-                        "user_id": user_id,
-                        "message": f"You have been added to a new chat room: {instance.name}",
-                    },
+                publish_user_invited(
+                    user_id=user_id, room_id=instance.id, room_name=instance.name
                 )
