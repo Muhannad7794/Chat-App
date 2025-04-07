@@ -10,19 +10,18 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
   const [roomName, setRoomName] = useState("");
   const [members, setMembers] = useState("");
 
-  // Rename modal state
+  // Rename Modal State
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameRoomName, setRenameRoomName] = useState("");
   const [roomToRename, setRoomToRename] = useState(null);
 
-  // Delete modal state
+  // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState(null);
 
-  // Manage Members modal state
+  // Manage Members Modal State (for admin)
   const [showManageMembersModal, setShowManageMembersModal] = useState(false);
   const [membersList, setMembersList] = useState([]);
-  const [refreshMembers, setRefreshMembers] = useState(false);
 
   const navigate = useNavigate();
 
@@ -44,7 +43,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
     fetchChatRooms();
   }, [token]);
 
-  // Create room handler
+  // Create Room Handler
   const handleCreateRoom = async () => {
     const memberUsernames = members.split(",").map((name) => name.trim());
     try {
@@ -61,6 +60,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           },
         }
       );
+      alert("Chat room created successfully!");
       setShowCreateModal(false);
       fetchChatRooms();
       navigate("/chat-rooms");
@@ -70,7 +70,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
     }
   };
 
-  // Rename room handler (admin-only)
+  // Rename Room Handler (Admin-only)
   const handleRenameRoom = async () => {
     if (!roomToRename) return;
     try {
@@ -84,6 +84,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           },
         }
       );
+      alert("Room renamed successfully!");
       setShowRenameModal(false);
       fetchChatRooms();
     } catch (error) {
@@ -92,7 +93,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
     }
   };
 
-  // Delete room handler (admin-only)
+  // Delete Room Handler (Admin-only)
   const handleDeleteRoom = async () => {
     if (!roomToDelete) return;
     try {
@@ -102,6 +103,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           headers: { Authorization: `Token ${token}` },
         }
       );
+      alert("Room deleted successfully!");
       setShowDeleteModal(false);
       fetchChatRooms();
     } catch (error) {
@@ -110,7 +112,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
     }
   };
 
-  // Leave room handler (non-admin)
+  // Leave Room Handler (Non-admin)
   const handleLeaveRoom = async (room) => {
     try {
       await axios.post(
@@ -123,6 +125,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           },
         }
       );
+      alert("You have left the room.");
       fetchChatRooms();
     } catch (error) {
       console.error("Leave room failed:", error);
@@ -130,9 +133,8 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
     }
   };
 
-  // Manage members: Fetch room members for a specific room
+  // Fetch Room Members for Manage Members Modal
   const fetchRoomMembers = async (roomId) => {
-    // Assuming your backend returns room details including members
     try {
       const response = await axios.get(
         `http://localhost:8002/api/chat/rooms/${roomId}/`,
@@ -140,13 +142,14 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           headers: { Authorization: `Token ${token}` },
         }
       );
+      // Assuming the room object has a 'members' property that is an array of member objects.
       setMembersList(response.data.members || []);
     } catch (error) {
       console.error("Failed to fetch room members:", error);
     }
   };
 
-  // Remove a member (admin-only) from the room
+  // Remove Member Handler (Admin-only)
   const handleRemoveMember = async (roomId, memberId) => {
     try {
       await axios.post(
@@ -159,24 +162,26 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           },
         }
       );
-      setRefreshMembers(!refreshMembers);
-      alert("Member removed.");
+      alert("Member removed successfully!");
+      fetchRoomMembers(roomId);
     } catch (error) {
       console.error("Failed to remove member:", error);
       alert("Failed to remove member.");
     }
   };
 
-  // Open Manage Members modal (admin-only)
+  // Open Manage Members Modal (Admin-only)
   const openManageMembersModal = async (room) => {
     await fetchRoomMembers(room.id);
-    setRoomToRename(room); // Use roomToRename to hold the room context for managing members
+    setRoomToRename(room); // Reuse roomToRename for managing members context
     setShowManageMembersModal(true);
   };
 
   return (
     <Container>
       <Button onClick={() => setShowCreateModal(true)}>Create Chat Room</Button>
+
+      {/* Create Room Modal */}
       <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Create a New Chat Room</Modal.Title>
@@ -267,7 +272,7 @@ const ChatRooms = ({ token, setCurrentRoomId, currentUsername }) => {
           <Modal.Title>Manage Members for "{roomToRename?.name}"</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {membersList.length > 0 ? (
+          {membersList && membersList.length > 0 ? (
             <ListGroup>
               {membersList.map((member) => (
                 <ListGroup.Item

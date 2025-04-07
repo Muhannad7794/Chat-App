@@ -32,6 +32,12 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             "admin": {"read_only": True},
         }
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        # Replace the admin field with the admin's username
+        ret["admin"] = instance.admin.username
+        return ret
+
     def update(self, instance, validated_data):
         """
         Allows the room name to be updated if provided.
