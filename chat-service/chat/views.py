@@ -80,7 +80,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     def remove_member(self, request, pk=None):
         """
         Admin-only action to remove a member from the room.
-        Expects JSON like {"user_id": 42}
+        Expects JSON like {"user_id": <int>}
         """
         room = self.get_object()
         if room.admin != request.user:

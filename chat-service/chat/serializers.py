@@ -15,11 +15,21 @@ from .translation_handler import get_language_preference
 User = get_user_model()
 
 
+class UserNestedSerializer(serializers.ModelSerializer):
+    """Simple serializer for returning user info (id, username)."""
+
+    class Meta:
+        model = User
+        fields = ["id", "username"]
+
+
 class ChatRoomSerializer(serializers.ModelSerializer):
     """
     Serializer for creating/updating ChatRoom instances.
     """
 
+    # We'll replace the default `members` with a nested serializer
+    members = UserNestedSerializer(many=True, read_only=True)
     members_usernames = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
     )
