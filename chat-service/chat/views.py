@@ -16,6 +16,7 @@ from .dispatch import (
     publish_member_left,
     send_notification,
     send_translation_request,
+    publish_user_invited,
 )
 import logging
 
