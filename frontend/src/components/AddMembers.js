@@ -1,7 +1,10 @@
+// AddMembers.js
 import React, { useState, useEffect } from "react";
-import { Button, Container, Form, ListGroup } from "react-bootstrap";
+import { Button, Container, Form } from "react-bootstrap";
+import { useParams } from "react-router-dom";
 
-const AddMembers = ({ token, roomId }) => {
+const AddMembers = ({ token }) => {
+  const { roomId } = useParams();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
 
@@ -24,14 +27,14 @@ const AddMembers = ({ token, roomId }) => {
   const handleAddMember = async (event) => {
     event.preventDefault();
     const response = await fetch(
-      `http://localhost:8002/api/chat/rooms/${roomId}/add_member/`,
+      `http://localhost:8002/api/chat/rooms/${roomId}/add-member/`,
       {
         method: "POST",
         headers: {
           Authorization: `Token ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId: selectedUser }),
+        body: JSON.stringify({ username: selectedUser }),
       }
     );
     if (response.ok) {
@@ -43,7 +46,7 @@ const AddMembers = ({ token, roomId }) => {
 
   return (
     <Container>
-      <h2>Add Members to Chat Room</h2>
+      <h2>Add Members to Chat Room {roomId}</h2>
       <Form onSubmit={handleAddMember}>
         <Form.Group controlId="formUserSelect">
           <Form.Label>Select User</Form.Label>
@@ -52,8 +55,9 @@ const AddMembers = ({ token, roomId }) => {
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
           >
+            <option value="">-- Select a user --</option>
             {users.map((user) => (
-              <option key={user.id} value={user.id}>
+              <option key={user.id} value={user.username}>
                 {user.username}
               </option>
             ))}

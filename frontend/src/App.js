@@ -1,4 +1,4 @@
-// src/App.js
+// App.js
 import React, { useState, useEffect } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import Login from "./components/Login";
@@ -68,7 +68,11 @@ const App = () => {
             path="/chat-rooms"
             element={
               token ? (
-                <ChatRooms token={token} setCurrentRoomId={setCurrentRoomId} />
+                <ChatRooms
+                  token={token}
+                  setCurrentRoomId={setCurrentRoomId}
+                  currentUsername={username}
+                />
               ) : (
                 <Navigate replace to="/login" />
               )
@@ -78,7 +82,7 @@ const App = () => {
             path="/add-members/:roomId"
             element={
               token ? (
-                <AddMembers token={token} roomId={currentRoomId} />
+                <AddMembers token={token} />
               ) : (
                 <Navigate replace to="/login" />
               )
