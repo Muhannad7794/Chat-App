@@ -5,17 +5,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Constants for each queue name (you can rename them as you wish)
+# queue names:
 CHAT_ROOM_CREATED_QUEUE = "chat_room_created_queue"
 USER_INVITED_QUEUE = "user_invited_queue"
 NEW_MESSAGE_QUEUE = "new_message_queue"
 MESSAGE_PROCESSED_QUEUE = "message_processed_queue"
-# ... add more if needed, e.g. "chat_room_deleted_queue", etc.
+CHAT_ROOM_DELETED_QUEUE = "chat_room_deleted_queue"
+CHAT_ROOM_RENAMED_QUEUE = "chat_room_renamed_queue"
+MEMBER_REMOVED_QUEUE = "member_removed_queue"
+MEMBER_LEFT_QUEUE = "member_left_queue"
 
 
 def get_rabbit_connection():
     """
-    Establishes a connection to RabbitMQ using credentials from settings.
+    Establish a connection to RabbitMQ using credentials from settings.
     """
     credentials = pika.PlainCredentials(
         settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
@@ -28,13 +31,9 @@ def get_rabbit_connection():
     return pika.BlockingConnection(parameters)
 
 
-#
-# New helper function for publishing to any queue
-#
 def _publish_to_queue(queue_name, message_data):
     """
-    Opens a connection, declares the queue (durable),
-    publishes the message, and closes the connection.
+    Generic helper: declare the specified queue and publish the message.
     """
     connection = None
     try:
@@ -42,7 +41,7 @@ def _publish_to_queue(queue_name, message_data):
         connection = get_rabbit_connection()
         channel = connection.channel()
 
-        # Ensure queue is declared (durable) so messages persist
+        # Declare the queue as durable
         channel.queue_declare(queue=queue_name, durable=True)
 
         body = json.dumps(message_data)
@@ -50,7 +49,6 @@ def _publish_to_queue(queue_name, message_data):
 
         channel.basic_publish(exchange="", routing_key=queue_name, body=body)
         logger.debug("Message published successfully")
-
     except Exception as e:
         logger.error(f"Failed to publish message to {queue_name}: {e}")
     finally:
@@ -59,9 +57,6 @@ def _publish_to_queue(queue_name, message_data):
         logger.debug("RabbitMQ connection closed")
 
 
-#
-# 1. Publish event when a new chat room is created
-#
 def publish_chat_room_created(room_id, room_name, admin_id):
     """
     Publishes an event indicating that a new chat room has been created.
@@ -75,9 +70,6 @@ def publish_chat_room_created(room_id, room_name, admin_id):
     _publish_to_queue(CHAT_ROOM_CREATED_QUEUE, message_data)
 
 
-#
-# 2. Publish event when a user is invited to a chat room
-#
 def publish_user_invited(user_id, room_id, room_name):
     """
     Publishes an event indicating that a user has been invited to a chat room.
@@ -91,9 +83,6 @@ def publish_user_invited(user_id, room_id, room_name):
     _publish_to_queue(USER_INVITED_QUEUE, message_data)
 
 
-#
-# 3. Publish event when a new message is sent
-#
 def publish_new_message(message_id, room_id, sender_id, content):
     """
     Publishes an event indicating that a new message has been created in a room.
@@ -108,9 +97,6 @@ def publish_new_message(message_id, room_id, sender_id, content):
     _publish_to_queue(NEW_MESSAGE_QUEUE, message_data)
 
 
-#
-# 4. Publish event when a message is processed or stored
-#
 def publish_message_processed(message_id, room_id, processed_info=None):
     """
     Publishes an event that a message has been processed (e.g., saved, translated, etc.).
@@ -124,13 +110,58 @@ def publish_message_processed(message_id, room_id, processed_info=None):
     _publish_to_queue(MESSAGE_PROCESSED_QUEUE, message_data)
 
 
-#
-# (Optional) Keep your existing functions if still needed:
-#
+def publish_chat_room_deleted(room_id):
+    """
+    Publish an event when a chat room is deleted.
+    """
+    message_data = {
+        "event": "chat_room_deleted",
+        "room_id": room_id,
+    }
+    _publish_to_queue(CHAT_ROOM_DELETED_QUEUE, message_data)
+
+
+def publish_chat_room_renamed(room_id, old_name, new_name):
+    """
+    Publish an event when a chat room is renamed.
+    """
+    message_data = {
+        "event": "chat_room_renamed",
+        "room_id": room_id,
+        "old_name": old_name,
+        "new_name": new_name,
+    }
+    _publish_to_queue(CHAT_ROOM_RENAMED_QUEUE, message_data)
+
+
+def publish_member_removed(room_id, user_id):
+    """
+    Publish an event when a member is removed by the admin.
+    """
+    message_data = {
+        "event": "member_removed",
+        "room_id": room_id,
+        "user_id": user_id,
+    }
+    _publish_to_queue(MEMBER_REMOVED_QUEUE, message_data)
+
+
+def publish_member_left(room_id, user_id):
+    """
+    Publish an event when a member leaves the room on their own.
+    """
+    message_data = {
+        "event": "member_left",
+        "room_id": room_id,
+        "user_id": user_id,
+    }
+    _publish_to_queue(MEMBER_LEFT_QUEUE, message_data)
+
+
+# (Optional) Retain your existing functions for backward compatibility:
 def send_notification(notification_type, message):
     """
-    Original function. Could be left here for backward compatibility
-    or replaced by more specific queue-based methods.
+    Original function that maps a notification type to a queue.
     """
     queue_name = f"{notification_type}_notifications"
     _publish_to_queue(queue_name, message)

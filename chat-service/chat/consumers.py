@@ -18,9 +18,6 @@ from .dispatch import (
 logger = logging.getLogger(__name__)
 
 
-########################################################
-# 1) Existing WebSocket Consumer
-########################################################
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope["url_route"]["kwargs"]["room_id"]
@@ -68,14 +65,50 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
 
-########################################################
-# 2) RabbitMQ Consumers
-########################################################
+def chat_room_deleted_callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        logger.info(f"[chat_room_deleted_callback] Received: {data}")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        # Implement additional logic (e.g., cleanup, analytics) if needed.
+    except Exception as e:
+        logger.error(f"Error processing chat_room_deleted event: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 
-#
-# Each queue gets its own callback
-#
+def chat_room_renamed_callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        logger.info(f"[chat_room_renamed_callback] Received: {data}")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        # Implement logic: update caches, inform connected clients, etc.
+    except Exception as e:
+        logger.error(f"Error processing chat_room_renamed event: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+
+def member_removed_callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        logger.info(f"[member_removed_callback] Received: {data}")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        # Implement logic: notify user, update membership state, etc.
+    except Exception as e:
+        logger.error(f"Error processing member_removed event: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+
+def member_left_callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        logger.info(f"[member_left_callback] Received: {data}")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        # Implement logic: notify remaining members, update stats, etc.
+    except Exception as e:
+        logger.error(f"Error processing member_left event: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+
 def chat_room_created_callback(ch, method, properties, body):
     """
     Handle messages from CHAT_ROOM_CREATED_QUEUE.
@@ -86,12 +119,6 @@ def chat_room_created_callback(ch, method, properties, body):
         logger.info(f"[chat_room_created_callback] Received: {data}")
         # Acknowledge message
         ch.basic_ack(delivery_tag=method.delivery_tag)
-
-        # TODO: Add your custom logic here, e.g.:
-        # room_id = data["room_id"]
-        # room_name = data["room_name"]
-        # admin_id = data["admin_id"]
-        # ...
     except Exception as e:
         logger.error(f"Error processing chat_room_created: {e}")
         # Decide if you want to requeue or discard
@@ -103,8 +130,6 @@ def user_invited_callback(ch, method, properties, body):
         data = json.loads(body)
         logger.info(f"[user_invited_callback] Received: {data}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
-
-        # TODO: Add your custom logic here
     except Exception as e:
         logger.error(f"Error processing user_invited: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
@@ -115,8 +140,6 @@ def new_message_callback(ch, method, properties, body):
         data = json.loads(body)
         logger.info(f"[new_message_callback] Received: {data}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
-
-        # TODO: Add your custom logic here
     except Exception as e:
         logger.error(f"Error processing new_message: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
@@ -127,8 +150,6 @@ def message_processed_callback(ch, method, properties, body):
         data = json.loads(body)
         logger.info(f"[message_processed_callback] Received: {data}")
         ch.basic_ack(delivery_tag=method.delivery_tag)
-
-        # TODO: Add your custom logic here
     except Exception as e:
         logger.error(f"Error processing message_processed: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
@@ -147,9 +168,16 @@ def start_rabbitmq_consumer():
     channel.queue_declare(queue=USER_INVITED_QUEUE, durable=True)
     channel.queue_declare(queue=NEW_MESSAGE_QUEUE, durable=True)
     channel.queue_declare(queue=MESSAGE_PROCESSED_QUEUE, durable=True)
-    # If you also use 'translation_request_queue', declare that too.
+    channel.queue_declare(queue=CHAT_ROOM_DELETED_QUEUE, durable=True)
+    channel.queue_declare(queue=CHAT_ROOM_RENAMED_QUEUE, durable=True)
+    channel.queue_declare(queue=MEMBER_REMOVED_QUEUE, durable=True)
+    channel.queue_declare(queue=MEMBER_LEFT_QUEUE, durable=True)
 
-    # Attach each queue to its callback
+    # Set up the callbacks for each queue
+    for q in queues:
+        channel.queue_declare(queue=q, durable=True)
+
+    # Attach callbacks to the respective queues
     channel.basic_consume(
         queue=CHAT_ROOM_CREATED_QUEUE, on_message_callback=chat_room_created_callback
     )
@@ -162,6 +190,18 @@ def start_rabbitmq_consumer():
     channel.basic_consume(
         queue=MESSAGE_PROCESSED_QUEUE, on_message_callback=message_processed_callback
     )
+    channel.basic_consume(
+        queue=CHAT_ROOM_DELETED_QUEUE, on_message_callback=chat_room_deleted_callback
+    )
+    channel.basic_consume(
+        queue=CHAT_ROOM_RENAMED_QUEUE, on_message_callback=chat_room_renamed_callback
+    )
+    channel.basic_consume(
+        queue=MEMBER_REMOVED_QUEUE, on_message_callback=member_removed_callback
+    )
+    channel.basic_consume(
+        queue=MEMBER_LEFT_QUEUE, on_message_callback=member_left_callback
+    )
 
-    logger.info("RabbitMQ consumers are ready. Waiting for messages...")
+    logger.info("RabbitMQ consumers are running and waiting for messages...")
     channel.start_consuming()
