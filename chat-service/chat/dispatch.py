@@ -1,4 +1,4 @@
-import pika
+import pika # type: ignore
 from django.conf import settings
 import json
 import logging
