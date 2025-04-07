@@ -32,12 +32,18 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             "admin": {"read_only": True},
         }
 
+    def update(self, instance, validated_data):
+        """
+        Allows the room name to be updated if provided.
+        Ignores members here because we handle that
+        in the view's custom actions for add/remove.
+        """
+        if "name" in validated_data:
+            instance.name = validated_data["name"]
+        instance.save()
+        return instance
+
     def create(self, validated_data):
-        """
-        Creates a new ChatRoom and adds members.
-        We rely on the m2m_changed signal (in models.py) to publish
-        user-invited events. Here, we only publish a 'chat room created' event.
-        """
         members_usernames = validated_data.pop("members_usernames", [])
         chat_room = ChatRoom.objects.create(
             **validated_data, admin=self.context["request"].user

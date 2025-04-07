@@ -21,32 +21,117 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Only show rooms that the current user is a member of
+        """
+        Only show rooms that the current user is a member of.
+        """
         return ChatRoom.objects.filter(members=self.request.user)
 
-    @action(
-        detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
-    )
-    def set_language(self, request):
+    #
+    # 1) Enforce "admin only" for update/partial_update/destroy
+    #
+    def update(self, request, *args, **kwargs):
+        room = self.get_object()
+        if room.admin != request.user:
+            raise PermissionDenied(
+                "Only the room admin can rename the room or modify its membership."
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        room = self.get_object()
+        if room.admin != request.user:
+            raise PermissionDenied(
+                "Only the room admin can rename the room or modify its membership."
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        room = self.get_object()
+        if room.admin != request.user:
+            raise PermissionDenied("Only the room admin can delete this room.")
+        return super().destroy(request, *args, **kwargs)
+
+    #
+    # 2) Optional custom actions for adding/removing members
+    #    (If you want to let the admin do that via distinct endpoints)
+    #
+    @action(detail=True, methods=["post"], url_path="add-member")
+    def add_member(self, request, pk=None):
         """
-        Allows a user to set a preferred language for a specific chat room.
+        Admin-only action to add a user to the room.
+        Expects JSON like {"username": "some_username"}
         """
-        chat_room_id = request.data.get("chat_room")
-        language = request.data.get("language")
-        if not chat_room_id or not language:
+        room = self.get_object()
+        if room.admin != request.user:
+            raise PermissionDenied("Only the room admin can add members.")
+
+        username = request.data.get("username")
+        if not username:
             return Response(
-                {"detail": "Chat room and language are required."},
+                {"detail": "Username is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user, created = User.objects.get_or_create(username=username)
+        room.members.add(user)
+        room.save()
+        return Response({"detail": f"User '{username}' added to the room."})
+
+    @action(detail=True, methods=["post"], url_path="remove-member")
+    def remove_member(self, request, pk=None):
+        """
+        Admin-only action to remove a member from the room.
+        Expects JSON like {"user_id": 42}
+        """
+        room = self.get_object()
+        if room.admin != request.user:
+            raise PermissionDenied("Only the room admin can remove members.")
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"detail": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user_to_remove = room.members.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User not found in this room."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user_to_remove == room.admin:
+            return Response(
+                {"detail": "Cannot remove the admin from their own room."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        chat_room = ChatRoom.objects.filter(
-            id=chat_room_id, members=request.user
-        ).first()
-        if not chat_room:
-            raise PermissionDenied("You are not a member of this room.")
+        room.members.remove(user_to_remove)
+        room.save()
+        return Response({"detail": f"User {user_id} removed from the room."})
 
-        set_language_preference(request.user.id, chat_room.id, language)
-        return Response({"detail": "Language preference set successfully."})
+    #
+    # 3) A custom action to let a user leave the room on their own
+    #
+    @action(detail=True, methods=["post"], url_path="leave")
+    def leave_room(self, request, pk=None):
+        """
+        Allows a non-admin user to remove themselves from the room.
+        """
+        room = self.get_object()
+        if request.user not in room.members.all():
+            return Response(
+                {"detail": "You are not a member of this room."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # If the user is the admin, we might decide they can't 'leave'
+        # or that leaving would delete the room. For now, let's allow it:
+        # but you can also block it if you want to force the admin to delete
+        # or transfer admin privileges first.
+        room.members.remove(request.user)
+        room.save()
+        return Response({"detail": "You have left the room."})
 
 
 class MessageViewSet(viewsets.ModelViewSet):
