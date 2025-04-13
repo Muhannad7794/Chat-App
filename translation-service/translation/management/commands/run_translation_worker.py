@@ -7,7 +7,7 @@ import uuid
 import logging
 from django.conf import settings
 from django.core.cache import cache
-from translation.translation_handler import translate_text
+from translation.translation_handler import translate_message
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class Command(BaseCommand):
                     logger.info(f"Received translation request: {payload}")
 
                     # Call Azure Translator API synchronously.
-                    translated_text = translate_text(text, target_lang)
+                    translated_text = translate_message(text, target_lang)
 
                     # Optionally, save the result in cache using the correlation_id (for GET polling).
                     cache.set(correlation_id, translated_text, timeout=300)

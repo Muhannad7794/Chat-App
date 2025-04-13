@@ -34,9 +34,9 @@ class TranslationAPIView(APIView):
             )
         correlation_id = str(uuid.uuid4())
         # For testing, we can perform synchronous translation.
-        from .translation_handler import translate_text
+        from .translation_handler import translate_message
 
-        translated_text = translate_text(text, lang)
+        translated_text = translate_message(text, lang)
         # Optionally store in cache keyed by correlation_id
         cache.set(correlation_id, translated_text, timeout=300)
         return Response(
