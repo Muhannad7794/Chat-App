@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Form, Button, Container, Dropdown } from "react-bootstrap";
 import axios from "axios";
@@ -6,41 +6,65 @@ import axios from "axios";
 const Messages = ({ token, currentUsername }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [language, setLanguage] = useState("default");
+  // The language state now defaults to "original" meaning "show messages as sent"
+  const [language, setLanguage] = useState("original");
   const [usersMap, setUsersMap] = useState({}); // Mapping: user ID -> username
   const { roomId } = useParams();
+  const ws = useRef(null);
 
-  // Fetch messages
+  // Function to fetch messages from backend
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:8002/api/chat/messages/",
+        {
+          params: { chat_room: roomId, lang: language },
+          headers: { Authorization: `Token ${token}` },
+        }
+      );
+      setMessages(response.data);
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+      alert("Failed to fetch messages");
+    }
+  };
+
+  // Fetch messages initially and re-fetch when token, roomId, or language changes.
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const response = await axios.get(
-          `http://localhost:8002/api/chat/messages/`,
-          {
-            params: { chat_room: roomId, lang: language },
-            headers: { Authorization: `Token ${token}` },
-          }
-        );
-        setMessages(response.data);
-      } catch (error) {
-        console.error("Failed to fetch messages:", error);
-        alert("Failed to fetch messages");
-      }
-    };
     fetchMessages();
   }, [token, roomId, language]);
 
-  // Fetch user mapping from the API endpoint (adjust the URL if needed)
+  // Set up WebSocket connection for real‑time translation updates.
+  useEffect(() => {
+    if (roomId) {
+      // Make sure this URL matches your Channels routing in the chat service.
+      ws.current = new WebSocket(`ws://localhost:8002/ws/chat/${roomId}/`);
+      ws.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "translation_update") {
+          console.log("Received translation update:", data);
+          // When a translation update is received, re‑fetch messages.
+          fetchMessages();
+        }
+      };
+      ws.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+      return () => {
+        if (ws.current) ws.current.close();
+      };
+    }
+  }, [roomId]);
+
+  // Fetch the user mapping data so we can display usernames with colors.
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get("http://localhost:8001/api/users/", {
           headers: { Authorization: `Token ${token}` },
         });
-        const users = response.data;
-        // Build mapping: user id -> username
         const mapping = {};
-        users.forEach((user) => {
+        response.data.forEach((user) => {
           mapping[user.id] = user.username;
         });
         setUsersMap(mapping);
@@ -51,11 +75,13 @@ const Messages = ({ token, currentUsername }) => {
     fetchUsers();
   }, [token]);
 
+  // Handle a change in language selection.
   const handleLanguageChange = async (newLanguage) => {
     setLanguage(newLanguage);
     try {
+      // POST language preference change (do not hardcode a target language)
       await axios.post(
-        `http://localhost:8002/api/chat/set-language/`,
+        "http://localhost:8002/api/chat/set-language/",
         { chat_room: roomId, language: newLanguage },
         {
           headers: {
@@ -69,11 +95,12 @@ const Messages = ({ token, currentUsername }) => {
     }
   };
 
+  // Handle sending a new message.
   const handleSendMessage = async (event) => {
     event.preventDefault();
     try {
       const response = await axios.post(
-        `http://localhost:8002/api/chat/messages/`,
+        "http://localhost:8002/api/chat/messages/",
         { content: newMessage, chat_room: roomId },
         {
           headers: {
@@ -82,6 +109,7 @@ const Messages = ({ token, currentUsername }) => {
           },
         }
       );
+      // Append the new message to the messages state.
       setMessages([...messages, response.data]);
       setNewMessage("");
     } catch (error) {
@@ -90,11 +118,12 @@ const Messages = ({ token, currentUsername }) => {
     }
   };
 
+  // List of languages for the dropdown.
   const languages = ["en", "es", "fr", "de", "it", "ru", "zh", "ar", "ja"];
 
-  // Function to assign a consistent color based on a username string
+  // Helper function to assign a consistent color to usernames.
   const getUserColor = (username) => {
-    if (!username) return "#6c757d"; // default grey if username is missing
+    if (!username) return "#6c757d"; // Default grey if username is missing.
     const colors = [
       "#007bff",
       "#28a745",
@@ -102,7 +131,7 @@ const Messages = ({ token, currentUsername }) => {
       "#ffc107",
       "#6f42c1",
       "#17a2b8",
-    ]; // remember to make it adynamic array not hard coded values
+    ];
     let hash = 0;
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash);
@@ -130,8 +159,6 @@ const Messages = ({ token, currentUsername }) => {
       </Dropdown>
       <div>
         {messages.map((msg) => {
-          // If msg.sender is an object with username, use it.
-          // Otherwise, if it’s just an ID, look it up in usersMap.
           let senderUsername = "";
           if (
             msg.sender &&
@@ -144,10 +171,9 @@ const Messages = ({ token, currentUsername }) => {
           } else {
             senderUsername = "Unknown";
           }
-          // Determine message alignment: right for the current user, left for others.
+          // Right-align messages from the current user.
           const isCurrentUser = senderUsername === currentUsername;
           const alignment = isCurrentUser ? "flex-end" : "flex-start";
-
           return (
             <div
               key={msg.id}

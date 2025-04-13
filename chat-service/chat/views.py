@@ -31,15 +31,12 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """Only show rooms that the current user is a member of."""
         return ChatRoom.objects.filter(members=self.request.user)
 
     def update(self, request, *args, **kwargs):
         room = self.get_object()
         if room.admin != request.user:
-            raise PermissionDenied(
-                "Only the room admin can rename the room or modify its membership."
-            )
+            raise PermissionDenied("Only the room admin can rename or modify the room.")
         old_name = room.name
         response = super().update(request, *args, **kwargs)
         new_name = response.data.get("name")
@@ -61,9 +58,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         room = self.get_object()
         if room.admin != request.user:
-            raise PermissionDenied(
-                "Only the room admin can rename the room or modify its membership."
-            )
+            raise PermissionDenied("Only the room admin can modify this room.")
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -84,7 +79,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="add-member")
     def add_member(self, request, pk=None):
-        """Admin-only: add a member to the room. Expects {"username": "some_username"}."""
         room = self.get_object()
         if room.admin != request.user:
             raise PermissionDenied("Only the room admin can add members.")
@@ -101,7 +95,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="remove-member")
     def remove_member(self, request, pk=None):
-        """Admin-only: remove a member from the room. Expects {"user_id": <int>}."""
         room = self.get_object()
         if room.admin != request.user:
             raise PermissionDenied("Only the room admin can remove members.")
@@ -119,7 +112,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             )
         if user_to_remove == room.admin:
             return Response(
-                {"detail": "Cannot remove the admin from their own room."},
+                {"detail": "Cannot remove the admin."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         room.members.remove(user_to_remove)
@@ -129,7 +122,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="leave")
     def leave_room(self, request, pk=None):
-        """Allows a non-admin user to leave the room."""
         room = self.get_object()
         if request.user not in room.members.all():
             return Response(
@@ -148,12 +140,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
 
 class MessageViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for listing, retrieving, creating, and deleting messages.
-    The serializer's create() method attaches the sender using the context.
-    After saving the message, asynchronous translation events are triggered.
-    """
-
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -161,7 +147,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         room_id = self.request.query_params.get("chat_room")
         if not room_id:
             raise PermissionDenied("Chat room not specified.")
-        # Use distinct() and order by timestamp to avoid duplicate rows from the join.
+        # Adding distinct() and ordering to avoid duplicate rows.
         return (
             Message.objects.filter(
                 chat_room_id=room_id, chat_room__members=self.request.user
@@ -179,15 +165,16 @@ class MessageViewSet(viewsets.ModelViewSet):
         chat_room = serializer.validated_data.get("chat_room")
         if self.request.user not in chat_room.members.all():
             raise PermissionDenied("You are not a member of this room.")
-        # Save the message. MessageSerializer.create() will use context['sender'].
+        # Save the message using the sender passed in context.
         message_instance = serializer.save()
 
-        # Define a nested function to publish translation events.
+        # Define a function to trigger translation events and notifications.
         def publish_translation_events():
             for member in chat_room.members.all():
                 if member != self.request.user:
                     target_language = get_language_preference(member.id, chat_room.id)
-                    if target_language and target_language != "default":
+                    # If a language preference other than "original" is set, then fire a translation request.
+                    if target_language and target_language != "original":
                         try:
                             send_translation_request(
                                 message_instance.content,
@@ -197,7 +184,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                             )
                         except Exception as e:
                             logger.error(
-                                f"Failed to publish translation request for message {message_instance.id} for user {member.id}: {e}"
+                                f"Translation request failed for msg {message_instance.id} for user {member.id}: {e}"
                             )
                     else:
                         send_notification(
@@ -209,5 +196,4 @@ class MessageViewSet(viewsets.ModelViewSet):
                             },
                         )
 
-        # Execute translation events after the transaction commits.
         transaction.on_commit(publish_translation_events)

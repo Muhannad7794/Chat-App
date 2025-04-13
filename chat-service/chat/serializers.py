@@ -1,13 +1,12 @@
 # chat/serializers.py
-
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import ChatRoom, Message
 from .dispatch import (
     publish_chat_room_created,
     publish_new_message,
-    send_notification,  # For user-level notifications
-    send_translation_request,  # For translation queue
+    send_notification,
+    send_translation_request,
 )
 from .translation_handler import get_language_preference
 import logging
@@ -17,7 +16,7 @@ User = get_user_model()
 
 
 class UserNestedSerializer(serializers.ModelSerializer):
-    """Simple serializer for returning user info (id, username)."""
+    """Serializer for returning user info (id, username)."""
 
     class Meta:
         model = User
@@ -44,7 +43,6 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        # Replace the admin field with the admin's username for the frontend
         rep["admin"] = instance.admin.username
         return rep
 
@@ -52,13 +50,11 @@ class ChatRoomSerializer(serializers.ModelSerializer):
         members_usernames = validated_data.pop("members_usernames", [])
         user = self.context["request"].user
         chat_room = ChatRoom.objects.create(**validated_data, admin=user)
-        # Always add the creator as a member
         chat_room.members.add(user)
         for username in members_usernames:
             member, _ = User.objects.get_or_create(username=username)
             chat_room.members.add(member)
         chat_room.save()
-        # Publish event (if desired)
         publish_chat_room_created(
             room_id=chat_room.id, room_name=chat_room.name, admin_id=chat_room.admin.id
         )
@@ -74,7 +70,7 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     """
     Serializer for creating/updating Message instances.
-    The sender field is read-only and provided via the context.
+    The sender field is read-only and provided via the view's context.
     """
 
     class Meta:
@@ -86,18 +82,22 @@ class MessageSerializer(serializers.ModelSerializer):
         sender = self.context.get("sender")
         if not sender:
             raise serializers.ValidationError("Sender not provided in context.")
-        # Create message with the provided sender so that sender_id is not null.
         message_instance = Message.objects.create(sender=sender, **validated_data)
-        # Handle translation and notifications asynchronously.
+        # Trigger asynchronous translation/notification events without affecting save.
         self.handle_message_translation_and_notification(message_instance)
         return message_instance
 
     def handle_message_translation_and_notification(self, message_instance):
+        """
+        Publishes a 'new message' event and for each room member triggers:
+          - Translation request if the member's language preference is not "original"
+          - Otherwise, a direct notification.
+        """
         room_id = message_instance.chat_room.id
         sender_id = message_instance.sender.id
         content = message_instance.content
 
-        # Publish the "new message" event for global consumption.
+        # Publish new message event
         publish_new_message(
             message_id=message_instance.id,
             room_id=room_id,
@@ -105,15 +105,16 @@ class MessageSerializer(serializers.ModelSerializer):
             content=content,
         )
 
-        # For each member in the chat room, trigger translation or notification.
+        # For each member, check their language preference.
         for member in message_instance.chat_room.members.all():
             lang = get_language_preference(member.id, room_id)
-            if lang and lang != "default":
+            # Our design: if language is "original", show as-is.
+            if lang and lang != "original":
                 try:
                     send_translation_request(content, lang, room_id, member.id)
                 except Exception as e:
                     logger.error(
-                        f"Failed to send translation request for message {message_instance.id} for user {member.id}: {e}"
+                        f"Translation request error for message {message_instance.id} for user {member.id}: {e}"
                     )
             else:
                 send_notification(
