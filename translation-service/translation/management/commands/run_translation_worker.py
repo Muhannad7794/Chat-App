@@ -1,13 +1,16 @@
 # translation/management/commands/run_translation_worker.py
 
 from django.core.management.base import BaseCommand
-import pika
+import pika # type: ignore
 import json
 import uuid
 import logging
 from django.conf import settings
 from django.core.cache import cache
-from translation.translation_handler import translate_message
+from translation.translation_handler import (
+    translate_message,
+    save_translated_result_to_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,9 @@ class Command(BaseCommand):
 
                     # Call Azure Translator API synchronously.
                     translated_text = translate_message(text, target_lang)
+                    save_translated_result_to_cache(
+                        message_id, payload["user_id"], translated_text
+                    )
 
                     # Optionally, save the result in cache using the correlation_id (for GET polling).
                     cache.set(correlation_id, translated_text, timeout=300)

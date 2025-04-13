@@ -210,6 +210,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["sender"] = self.request.user
+        context["request"] = self.request  # ✅ Add this line
         return context
 
     def perform_create(self, serializer):

@@ -7,6 +7,7 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 import pika  # type: ignore
+import redis  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +103,26 @@ def send_language_change_notification(user_id, room_id, language_code):
     finally:
         if connection and connection.is_open:
             connection.close()
+
+
+def save_translated_result_to_cache(message_id, user_id, translated_text):
+    from django.core.cache import cache
+
+    cache_key = f"translated:{message_id}:{user_id}"
+    cache.set(cache_key, translated_text, timeout=3600)  # cache for 1 hour
+
+
+def get_translated_result_from_cache(
+    message_id, user_id, host="redis", port=6379, db=1
+):
+    """
+    Fetch a cached translated message from Redis.
+    Key format: translation:<user_id>:<message_id>
+    """
+    try:
+        r = redis.StrictRedis(host=host, port=port, db=db, decode_responses=True)
+        key = f"translation:{user_id}:{message_id}"
+        return r.get(key)
+    except Exception as e:
+        logger.error(f"Error accessing Redis cache for translation: {e}")
+        return None

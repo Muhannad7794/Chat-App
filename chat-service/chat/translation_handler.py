@@ -1,8 +1,11 @@
+# chat-sevice/chat/translation_handler.py
 import json
 import requests
 from django.conf import settings
 import pika
 import logging
+import redis
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 

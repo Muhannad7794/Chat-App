@@ -14,6 +14,8 @@ CHAT_ROOM_DELETED_QUEUE = "chat_room_deleted_queue"
 CHAT_ROOM_RENAMED_QUEUE = "chat_room_renamed_queue"
 MEMBER_REMOVED_QUEUE = "member_removed_queue"
 MEMBER_LEFT_QUEUE = "member_left_queue"
+TRANSLATION_COMPLETED_QUEUE = "translation_completed"
+
 
 
 def get_rabbit_connection():

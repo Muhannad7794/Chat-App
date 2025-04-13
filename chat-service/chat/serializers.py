@@ -8,7 +8,8 @@ from .dispatch import (
     send_notification,
     send_translation_request,
 )
-from .translation_handler import get_language_preference
+from .translation_handler import get_language_preference  # only this stays
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,18 +17,12 @@ User = get_user_model()
 
 
 class UserNestedSerializer(serializers.ModelSerializer):
-    """Serializer for returning user info (id, username)."""
-
     class Meta:
         model = User
         fields = ["id", "username"]
 
 
 class ChatRoomSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating/updating ChatRoom instances.
-    """
-
     members = UserNestedSerializer(many=True, read_only=True)
     members_usernames = serializers.ListField(
         child=serializers.CharField(), write_only=True, required=False
@@ -68,11 +63,6 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating/updating Message instances.
-    The sender field is read-only and provided via the view's context.
-    """
-
     class Meta:
         model = Message
         fields = "__all__"
@@ -83,21 +73,14 @@ class MessageSerializer(serializers.ModelSerializer):
         if not sender:
             raise serializers.ValidationError("Sender not provided in context.")
         message_instance = Message.objects.create(sender=sender, **validated_data)
-        # Trigger asynchronous translation/notification events without affecting save.
         self.handle_message_translation_and_notification(message_instance)
         return message_instance
 
     def handle_message_translation_and_notification(self, message_instance):
-        """
-        Publishes a 'new message' event and for each room member triggers:
-          - Translation request if the member's language preference is not "original"
-          - Otherwise, a direct notification.
-        """
         room_id = message_instance.chat_room.id
         sender_id = message_instance.sender.id
         content = message_instance.content
 
-        # Publish new message event
         publish_new_message(
             message_id=message_instance.id,
             room_id=room_id,
@@ -105,10 +88,8 @@ class MessageSerializer(serializers.ModelSerializer):
             content=content,
         )
 
-        # For each member, check their language preference.
         for member in message_instance.chat_room.members.all():
             lang = get_language_preference(member.id, room_id)
-            # Our design: if language is "original", show as-is.
             if lang and lang != "original":
                 try:
                     send_translation_request(content, lang, room_id, member.id)
