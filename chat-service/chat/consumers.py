@@ -7,7 +7,7 @@ import redis  # type: ignore
 import pika  # type: ignore
 from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 from chat.translation_handler import get_language_preference
 
 # queues imports
@@ -83,7 +83,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "chat_message",
                     "message": translated_message,
-                    "sender_id": user_id,
+                    "user_id": user_id,
                     "original": message,
                     "room_id": room_id,
                 },
@@ -101,7 +101,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         "type": "chat_message",
                         "message": event["message"],
-                        "sender_id": event.get("sender_id"),
+                        "user_id": event.get("user_id"),
                         "original": event.get("original"),
                         "room_id": event.get("room_id"),
                     }

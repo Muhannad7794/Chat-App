@@ -1,3 +1,4 @@
+# chat-service/chat/middleware.py
 class LogHeadersMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response

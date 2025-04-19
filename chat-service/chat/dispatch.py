@@ -1,3 +1,4 @@
+# chat-service/chat/dispatch.py
 import pika  # type: ignore
 from django.conf import settings
 import json
@@ -89,7 +90,7 @@ def publish_user_invited(user_id, room_id, room_name):
     _publish_to_queue(USER_INVITED_QUEUE, message_data)
 
 
-def publish_new_message(message_id, room_id, sender_id, content):
+def publish_new_message(message_id, room_id, user_id, content):
     """
     Publishes an event indicating that a new message has been created in a room.
     """
@@ -97,7 +98,7 @@ def publish_new_message(message_id, room_id, sender_id, content):
         "event": "new_message",
         "message_id": message_id,
         "room_id": room_id,
-        "sender_id": sender_id,
+        "user_id": user_id,
         "content": content,
     }
     _publish_to_queue(NEW_MESSAGE_QUEUE, message_data)

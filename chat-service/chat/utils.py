@@ -1,3 +1,4 @@
+# chat-service/chat/utils.py
 import requests
 from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
