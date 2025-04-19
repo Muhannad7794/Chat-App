@@ -2,43 +2,29 @@
 import json
 import requests
 from django.conf import settings
-import pika
+import pika  # type: ignore
 import logging
-import redis
+import redis  # type: ignore
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
-language_preferences = {}
+DEFAULT_LANGUAGE = "original"
 
 
 def get_language_preference(user_id, room_id):
-    return language_preferences.get((user_id, room_id), "default")
+    key = f"user_{user_id}_room_{room_id}_lang"
+    lang = cache.get(key)
+    return lang if lang is not None else DEFAULT_LANGUAGE
 
 
 def set_language_preference(user_id, room_id, language_code):
-    language_preferences[(user_id, room_id)] = language_code
+    key = f"user_{user_id}_room_{room_id}_lang"
+    cache.set(key, language_code, timeout=None)
     logger.debug(
         f"Set language preference for user {user_id} in room {room_id} to {language_code}"
     )
     send_language_change_notification(user_id, room_id, language_code)
-
-
-def translate_message(message, target_language):
-    """Send a translation request to Azure Translation API."""
-    headers = {
-        "Ocp-Apim-Subscription-Key": settings.AZURE_TRANSLATOR_KEY,
-        "Ocp-Apim-Subscription-Region": settings.AZURE_TRANSLATOR_REGION,
-        "Content-Type": "application/json",
-    }
-    body = [{"text": message}]
-    endpoint = f"{settings.AZURE_TRANSLATOR_ENDPOINT}/translate?api-version=3.0&to={target_language}"
-    response = requests.post(endpoint, headers=headers, json=body)
-    if response.status_code == 200:
-        translated_text = response.json()[0]["translations"][0]["text"]
-        return translated_text
-    else:
-        return message  # Fallback to the original message if translation fails
 
 
 def get_rabbit_connection():
@@ -46,7 +32,7 @@ def get_rabbit_connection():
         settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
     )
     parameters = pika.ConnectionParameters(
-        host=settings.RABBITMQ_HOST, credentials=credentials
+        host="rabbitmq", port=5672, credentials=credentials
     )
     return pika.BlockingConnection(parameters)
 

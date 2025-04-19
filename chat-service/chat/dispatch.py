@@ -1,7 +1,8 @@
-import pika # type: ignore
+import pika  # type: ignore
 from django.conf import settings
 import json
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +15,8 @@ CHAT_ROOM_DELETED_QUEUE = "chat_room_deleted_queue"
 CHAT_ROOM_RENAMED_QUEUE = "chat_room_renamed_queue"
 MEMBER_REMOVED_QUEUE = "member_removed_queue"
 MEMBER_LEFT_QUEUE = "member_left_queue"
+TRANSLATION_REQUEST_QUEUE = "translation_request_queue"
 TRANSLATION_COMPLETED_QUEUE = "translation_completed"
-
 
 
 def get_rabbit_connection():
@@ -26,8 +27,8 @@ def get_rabbit_connection():
         settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
     )
     parameters = pika.ConnectionParameters(
-        host=settings.RABBITMQ_HOST,
-        port=settings.RABBITMQ_PORT,
+        host="rabbitmq",
+        port=5672,
         credentials=credentials,
     )
     return pika.BlockingConnection(parameters)
@@ -57,6 +58,9 @@ def _publish_to_queue(queue_name, message_data):
         if connection and connection.is_open:
             connection.close()
         logger.debug("RabbitMQ connection closed")
+        logger.info(
+            f"Published translation request for message_id={payload['message_id']} to queue."
+        )
 
 
 def publish_chat_room_created(room_id, room_name, admin_id):
@@ -169,15 +173,14 @@ def send_notification(notification_type, message):
     _publish_to_queue(queue_name, message)
 
 
-def send_translation_request(text, target_language, room_id, user_id):
-    """
-    Original function for translation requests.
-    """
-    queue_name = "translation_request_queue"
-    message = {
+def send_translation_request(text, lang, room_id, user_id):
+    message_data = {
+        "event": "translation_request",
         "text": text,
-        "lang": target_language,
+        "lang": lang,
         "room_id": room_id,
+        "message_id": str(uuid.uuid4()),
+        "correlation_id": str(uuid.uuid4()),
         "user_id": user_id,
     }
-    _publish_to_queue(queue_name, message)
+    _publish_to_queue(TRANSLATION_REQUEST_QUEUE, message_data)

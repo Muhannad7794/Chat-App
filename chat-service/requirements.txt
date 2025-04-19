@@ -52,3 +52,4 @@ tzdata==2023.3
 uritemplate==4.1.1
 urllib3==2.1.0
 wsproto==1.2.0
+daphne>=4.0

@@ -1,4 +1,5 @@
 # run_consumers.py
+# chat-service/run_consumers.py
 import os
 import django
 

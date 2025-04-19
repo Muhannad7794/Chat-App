@@ -1,7 +1,7 @@
 # translation/management/commands/run_translation_worker.py
 
 from django.core.management.base import BaseCommand
-import pika # type: ignore
+import pika  # type: ignore
 import json
 import uuid
 import logging
@@ -24,8 +24,8 @@ class Command(BaseCommand):
                 settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
             )
             parameters = pika.ConnectionParameters(
-                host=settings.RABBITMQ_HOST,
-                port=settings.RABBITMQ_PORT,
+                host="rabbitmq",
+                port=5672,
                 credentials=credentials,
             )
             connection = pika.BlockingConnection(parameters)
@@ -52,15 +52,26 @@ class Command(BaseCommand):
                     save_translated_result_to_cache(
                         message_id, payload["user_id"], translated_text
                     )
+                    logger.info(
+                        f"AZURE_TRANSLATOR_KEY: {settings.AZURE_TRANSLATOR_KEY}"
+                    )
 
                     # Optionally, save the result in cache using the correlation_id (for GET polling).
-                    cache.set(correlation_id, translated_text, timeout=300)
+                    cache.set(
+                        f"translation_response:{correlation_id}",
+                        translated_text,
+                        timeout=300,
+                    )
+                    logger.info(
+                        f"Stored translation in Redis under key translation_response:{correlation_id}"
+                    )
 
                     # Build completed event payload.
                     event = {
-                        "event": "translation_completed",
+                        "type": "translation_update",
                         "correlation_id": correlation_id,
                         "room_id": room_id,
+                        "user_id": payload["user_id"],
                         "message_id": message_id,
                         "translated_text": translated_text,
                     }

@@ -92,6 +92,9 @@ class MessageSerializer(serializers.ModelSerializer):
             lang = get_language_preference(member.id, room_id)
             if lang and lang != "original":
                 try:
+                    logger.debug(
+                        f"Triggering translation for user {member.id} in room {room_id} to lang: {lang}"
+                    )
                     send_translation_request(content, lang, room_id, member.id)
                 except Exception as e:
                     logger.error(

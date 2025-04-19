@@ -28,9 +28,9 @@ services:
       - "8002:8002"
     volumes:
       - ./chat-service:/chat-service-dockerized:cached
-    command: python manage.py runserver 0.0.0.0:8002
+    command: daphne -b 0.0.0.0 -p 8002 chat_manager.asgi:application
     env_file:
-      - ./.env
+      - ./chat-service/.env
     environment:
       - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service
       - USERS_SERVICE_URL=http://users-management-service:8001
@@ -44,6 +44,20 @@ services:
       - users-management-service
       - rabbitmq
 
+  chat-consumer:
+    build:
+      context: ./chat-service
+    container_name: chat-consumer
+    command: python run_consumers.py
+    env_file:
+      - ./chat-service/.env
+    networks:
+      - backend
+    depends_on:
+      - rabbitmq
+      - chat-service
+    restart: always
+
   translation-service:
     build:
       context: ./translation-service
@@ -54,7 +68,7 @@ services:
       - ./translation-service:/translation-service-dockerized:cached
     command: python manage.py runserver 0.0.0.0:8003
     env_file:
-      - ./.env
+      - ./translation-service/.env
     environment:
       - ALLOWED_HOSTS=chat-service,localhost,127.0.0.1,users-management-service,translations-service
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
@@ -76,9 +90,9 @@ services:
     build:
       context: ./translation-service
     container_name: translation-worker
-    command: python manage.py run_translation_worker
+    command: ./wait-for-rabbit.sh
     env_file:
-      - ./.env
+      - ./translation-service/.env
     networks:
       - backend
     depends_on:

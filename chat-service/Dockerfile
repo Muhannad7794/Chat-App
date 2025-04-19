@@ -1,5 +1,7 @@
 FROM python:3.11
 ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=chat_manager.settings
+
 WORKDIR /chat-service-dockerized
 
 # Upgrade pip and setuptools before installing dependencies

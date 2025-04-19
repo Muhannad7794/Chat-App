@@ -10,7 +10,9 @@ def get_rabbit_connection():
         settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
     )
     parameters = pika.ConnectionParameters(
-        settings.RABBITMQ_HOST, settings.RABBITMQ_PORT, "/", credentials
+        host="rabbitmq",
+        port=5672,
+        credentials=credentials,
     )
     return pika.BlockingConnection(parameters)
 

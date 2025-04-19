@@ -232,7 +232,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                                 message_instance.content,
                                 target_language,
                                 chat_room.id,
-                                message_instance.id,
+                                member.id,
                             )
                         except Exception as e:
                             logger.error(
