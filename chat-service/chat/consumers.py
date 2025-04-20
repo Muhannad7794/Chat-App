@@ -37,18 +37,29 @@ logger = logging.getLogger(__name__)
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        user = self.scope.get("user")
+        print("[WS DEBUG] scope user is:", user)
+
+        if not user or not getattr(user, "is_authenticated", False):
+            print("[WS DEBUG] Rejected due to unauthenticated")
+            logger.warning("[connect] Rejected unauthenticated WebSocket connection")
+            await self.close()
+            return
+
+        # Store user object
+        self.user = user
+
+        # Get room from URL route and set group name
         self.room_name = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chat_{self.room_name}"
 
-        # Do NOT check user.is_authenticated here — Django middleware handles that
-        self.user_id = self.scope["user"].id
-        self.user_room_group_name = f"user_{self.user_id}_room_{self.room_name}"
-
-        # Add to groups
+        # Add user to the channel group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.channel_layer.group_add(self.user_room_group_name, self.channel_name)
 
-        logger.info(f"[connect] User {self.user_id} connected to room {self.room_name}")
+        # Accept connection
+        logger.debug(
+            f"[connect] Accepted connection for user {user.username} in room {self.room_name}"
+        )
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -62,38 +73,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.user_room_group_name, self.channel_name
             )
 
-    async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-            message = data.get("message", "").strip()
-
-            if not message:
-                logger.warning("[receive] Empty message received.")
-                return
-
-            user_id = self.scope["user"].id
-            room_id = self.room_name
-
-            logger.info(f"[receive] Message from user {user_id} in room {room_id}")
-            translated_message = await self.fetch_and_translate_message(
-                user_id, room_id, message
-            )
-
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    "type": "chat_message",
-                    "message": translated_message,
-                    "user_id": user_id,
-                    "original": message,
-                    "room_id": room_id,
-                },
-            )
-
-        except json.JSONDecodeError:
-            logger.error("[receive] Invalid JSON received.")
-        except Exception as e:
-            logger.exception(f"[receive] Unexpected error: {e}")
+        logger.info(
+            f"[disconnect] Disconnected user: {getattr(self, 'user', 'Unknown')} "
+            f"from room: {getattr(self, 'room_group_name', 'Unknown')}"
+        )
 
     async def chat_message(self, event):
         try:
@@ -103,13 +86,60 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "type": "chat_message",
                         "message": event["message"],
                         "user_id": event.get("user_id"),
-                        "original": event.get("original"),
-                        "room_id": event.get("room_id"),
+                        "username": event.get("username"),
                     }
                 )
             )
+            logger.debug(f"[chat_message] Sent message to client: {event['message']}")
         except Exception as e:
-            logger.exception(f"[chat_message] Error sending: {e}")
+            logger.exception(f"[chat_message] Error sending message: {e}")
+
+    async def receive(self, text_data=None, bytes_data=None):
+        user = self.scope.get("user")
+        user_id = getattr(user, "id", None)
+
+        if not user or not user.is_authenticated:
+            logger.warning("[receive] Received message from unauthenticated user")
+            return
+
+        try:
+            data = json.loads(text_data)
+            message = data.get("message", "").strip()
+
+            if not message:
+                logger.warning("[receive] Empty message received.")
+                return
+
+            logger.info(
+                f"[receive] Message from user {user_id} in room {self.room_name}"
+            )
+
+            # Translate the message
+            translated_message = await self.fetch_and_translate_message(
+                user_id, self.room_name, message
+            )
+
+            # Send to group
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "chat_message",
+                    "message": translated_message,
+                    "original": message,
+                    "user_id": user_id,
+                    "username": getattr(user, "username", "anonymous"),
+                    "room_id": self.room_name,
+                },
+            )
+
+            logger.debug(
+                f"[receive] Broadcasted translated message in room {self.room_group_name}"
+            )
+
+        except json.JSONDecodeError:
+            logger.error("[receive] Invalid JSON received.")
+        except Exception as e:
+            logger.exception(f"[receive] Unexpected error: {e}")
 
     async def translation_update(self, event):
         try:
@@ -132,6 +162,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         try:
             lang = await sync_to_async(get_language_preference)(user_id, room_id)
+            logger.debug(f"[fetch_and_translate_message] Using language: {lang}")
+
             request_payload = {
                 "user_id": user_id,
                 "room_id": room_id,
@@ -155,7 +187,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await asyncio.sleep(0.1)
 
             logger.warning(
-                f"[fetch_and_translate_message] Timeout for {correlation_id}"
+                f"[fetch_and_translate_message] Timeout for {correlation_id} (key={response_key})"
             )
             return message  # Fallback
 
