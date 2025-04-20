@@ -7,6 +7,7 @@ import redis  # type: ignore
 import pika  # type: ignore
 from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async, async_to_sync
 from chat.translation_handler import get_language_preference
 
@@ -220,7 +221,6 @@ def translation_completed_callback(ch, method, properties, body):
 # ---------- Other Queue Callbacks ----------
 
 
-# Same as before — leaving your logic unchanged (renamed just for clarity)
 def default_callback(queue_name):
     def handler(ch, method, properties, body):
         try:
@@ -234,14 +234,39 @@ def default_callback(queue_name):
     return handler
 
 
+# ---------- Language‑Change Callback (Sync context) ----------
+
+
+def language_change_callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        user_id = data["user_id"]
+        room_id = data["room_id"]
+        new_lang = data["language_code"]
+
+        # Avoid circular imports
+        from chat.models import Message
+        from .dispatch import send_translation_request
+
+        for msg in Message.objects.filter(chat_room_id=room_id):
+            send_translation_request(
+                text=msg.content,
+                lang=new_lang,
+                room_id=room_id,
+                user_id=user_id,
+            )
+
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    except Exception as e:
+        logger.error(f"[language_change_callback] Error re‑translating backlog: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+
 # ---------- RabbitMQ Consumer Entry Point ----------
 
 
 def start_rabbitmq_consumer():
-    """
-    This function declares each queue and sets up consumption.
-    Then it blocks indefinitely on `channel.start_consuming()`.
-    """
     connection = get_rabbit_connection()
     channel = connection.channel()
 
@@ -255,6 +280,7 @@ def start_rabbitmq_consumer():
         NEW_MESSAGE_QUEUE: default_callback("new_message"),
         MESSAGE_PROCESSED_QUEUE: default_callback("message_processed"),
         TRANSLATION_COMPLETED_QUEUE: translation_completed_callback,  # Special case
+        "language_change_notifications": language_change_callback,
     }
 
     for queue, handler in queues.items():

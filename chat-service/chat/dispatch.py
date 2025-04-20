@@ -17,7 +17,7 @@ CHAT_ROOM_RENAMED_QUEUE = "chat_room_renamed_queue"
 MEMBER_REMOVED_QUEUE = "member_removed_queue"
 MEMBER_LEFT_QUEUE = "member_left_queue"
 TRANSLATION_REQUEST_QUEUE = "translation_request_queue"
-TRANSLATION_COMPLETED_QUEUE = "translation_completed"
+TRANSLATION_COMPLETED_QUEUE = "translation_completed_queue"
 
 
 def get_rabbit_connection():
@@ -59,9 +59,7 @@ def _publish_to_queue(queue_name, message_data):
         if connection and connection.is_open:
             connection.close()
         logger.debug("RabbitMQ connection closed")
-        logger.info(
-            f"Published translation request for message_id={payload['message_id']} to queue."
-        )
+        logger.info(f"Published message to '{queue_name}'")
 
 
 def publish_chat_room_created(room_id, room_name, admin_id):

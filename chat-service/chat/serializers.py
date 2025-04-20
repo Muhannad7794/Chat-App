@@ -66,25 +66,26 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = "__all__"
-        read_only_fields = ["sender"]
+        read_only_fields = ["user"]
 
     def create(self, validated_data):
-        sender = self.context.get("sender")
-        if not sender:
+        print("VALIDATED DATA:", validated_data)
+        user = self.context.get("user")
+        if not user:
             raise serializers.ValidationError("Sender not provided in context.")
-        message_instance = Message.objects.create(sender=sender, **validated_data)
+        message_instance = Message.objects.create(user=user, **validated_data)
         self.handle_message_translation_and_notification(message_instance)
         return message_instance
 
     def handle_message_translation_and_notification(self, message_instance):
         room_id = message_instance.chat_room.id
-        sender_id = message_instance.sender.id
+        user_id = message_instance.user.id
         content = message_instance.content
 
         publish_new_message(
             message_id=message_instance.id,
             room_id=room_id,
-            sender_id=sender_id,
+            user_id=user_id,
             content=content,
         )
 
