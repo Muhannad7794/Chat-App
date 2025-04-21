@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Form, Button, Container, Dropdown } from "react-bootstrap";
 import axios from "axios";
@@ -6,14 +6,13 @@ import axios from "axios";
 const Messages = ({ token, currentUsername }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  // The language state now defaults to "original" meaning "show messages as sent"
   const [language, setLanguage] = useState("original");
-  const [usersMap, setUsersMap] = useState({}); // Mapping: user ID -> username
+  const [usersMap, setUsersMap] = useState({});
   const { roomId } = useParams();
   const ws = useRef(null);
 
-  // Function to fetch messages from backend
-  const fetchMessages = async () => {
+  // Stable fetchMessages to fix React Hook deps warning
+  const fetchMessages = useCallback(async () => {
     try {
       const response = await axios.get(
         "http://localhost:8002/api/chat/messages/",
@@ -27,36 +26,56 @@ const Messages = ({ token, currentUsername }) => {
       console.error("Failed to fetch messages:", error);
       alert("Failed to fetch messages");
     }
-  };
+  }, [roomId, language, token]);
 
-  // Fetch messages initially and re-fetch when token, roomId, or language changes.
+  // Fetch messages on token/room/language changes
   useEffect(() => {
     fetchMessages();
-  }, [token, roomId, language]);
+  }, [fetchMessages]);
 
-  // Set up WebSocket connection for real‑time translation updates.
+  // Set up WebSocket connection
   useEffect(() => {
-    if (roomId) {
-      // Make sure this URL matches your Channels routing in the chat service.
-      ws.current = new WebSocket(`ws://localhost:8002/ws/chat/${roomId}/`);
-      ws.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "translation_update") {
-          console.log("Received translation update:", data);
-          // When a translation update is received, re‑fetch messages.
-          fetchMessages();
-        }
-      };
-      ws.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-      return () => {
-        if (ws.current) ws.current.close();
-      };
-    }
-  }, [roomId]);
+    if (!roomId || !token) return;
 
-  // Fetch the user mapping data so we can display usernames with colors.
+    const socketUrl = `ws://localhost:8002/ws/chat/${roomId}/?token=${token}`;
+    ws.current = new WebSocket(socketUrl);
+
+    ws.current.onopen = () => {
+      console.log("[WebSocket] Connected to", socketUrl);
+    };
+
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("[WebSocket] Received:", data);
+
+      if (data.type === "translation_update") {
+        fetchMessages();
+      } else if (data.type === "chat_message") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: data.id || Date.now(),
+            content: data.message,
+            sender: { username: data.username },
+          },
+        ]);
+      }
+    };
+
+    ws.current.onerror = (error) => {
+      console.error("[WebSocket] Error:", error);
+    };
+
+    ws.current.onclose = () => {
+      console.log("[WebSocket] Closed");
+    };
+
+    return () => {
+      if (ws.current) ws.current.close();
+    };
+  }, [roomId, token, fetchMessages]);
+
+  // Fetch user list for name resolution
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -75,11 +94,9 @@ const Messages = ({ token, currentUsername }) => {
     fetchUsers();
   }, [token]);
 
-  // Handle a change in language selection.
   const handleLanguageChange = async (newLanguage) => {
     setLanguage(newLanguage);
     try {
-      // POST language preference change (do not hardcode a target language)
       await axios.post(
         "http://localhost:8002/api/chat/set-language/",
         { chat_room: roomId, language: newLanguage },
@@ -95,35 +112,26 @@ const Messages = ({ token, currentUsername }) => {
     }
   };
 
-  // Handle sending a new message.
-  const handleSendMessage = async (event) => {
+  const handleSendMessage = (event) => {
     event.preventDefault();
-    try {
-      const response = await axios.post(
-        "http://localhost:8002/api/chat/messages/",
-        { content: newMessage, chat_room: roomId },
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      // Append the new message to the messages state.
-      setMessages([...messages, response.data]);
+
+    if (!newMessage.trim()) return;
+
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      const payload = JSON.stringify({ message: newMessage });
+      console.log("[WebSocket] Sending:", payload);
+      ws.current.send(payload);
       setNewMessage("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      alert("Failed to send message");
+    } else {
+      console.warn("[WebSocket] Not connected. State:", ws.current?.readyState);
+      alert("Message not sent: WebSocket connection is not open.");
     }
   };
 
-  // List of languages for the dropdown.
   const languages = ["en", "es", "fr", "de", "it", "ru", "zh", "ar", "ja"];
 
-  // Helper function to assign a consistent color to usernames.
   const getUserColor = (username) => {
-    if (!username) return "#6c757d"; // Default grey if username is missing.
+    if (!username) return "#6c757d";
     const colors = [
       "#007bff",
       "#28a745",
@@ -157,6 +165,7 @@ const Messages = ({ token, currentUsername }) => {
           ))}
         </Dropdown.Menu>
       </Dropdown>
+
       <div>
         {messages.map((msg) => {
           let senderUsername = "";
@@ -171,9 +180,10 @@ const Messages = ({ token, currentUsername }) => {
           } else {
             senderUsername = "Unknown";
           }
-          // Right-align messages from the current user.
+
           const isCurrentUser = senderUsername === currentUsername;
           const alignment = isCurrentUser ? "flex-end" : "flex-start";
+
           return (
             <div
               key={msg.id}
@@ -199,6 +209,7 @@ const Messages = ({ token, currentUsername }) => {
           );
         })}
       </div>
+
       <Form onSubmit={handleSendMessage}>
         <Form.Group className="mb-3" controlId="newMessage">
           <Form.Label>New Message</Form.Label>
