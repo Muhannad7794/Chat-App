@@ -18,6 +18,8 @@ MEMBER_REMOVED_QUEUE = "member_removed_queue"
 MEMBER_LEFT_QUEUE = "member_left_queue"
 TRANSLATION_REQUEST_QUEUE = "translation_request_queue"
 TRANSLATION_COMPLETED_QUEUE = "translation_completed_queue"
+LANGUAGE_CHANGE_NOTIFICATIONS_QUEUE = "language_change_notifications"
+ROOM_RENAMED_NOTIFICATIONS_QUEUE = "room_renamed_notifications"
 
 
 def get_rabbit_connection():
