@@ -27,6 +27,22 @@ def set_language_preference(user_id, room_id, language_code):
     send_language_change_notification(user_id, room_id, language_code)
 
 
+def get_translated_result_from_cache(
+    message_id, user_id, host="redis", port=6379, db=1
+):
+    """
+    Fetch a cached translated message from Redis.
+    Key format: translation:<user_id>:<message_id>
+    """
+    try:
+        r = redis.StrictRedis(host=host, port=port, db=db, decode_responses=True)
+        key = f"translation:{user_id}:{message_id}"
+        return r.get(key)
+    except Exception as e:
+        logger.error(f"[get_translated_result_from_cache] Redis error: {e}")
+        return None
+
+
 def get_rabbit_connection():
     credentials = pika.PlainCredentials(
         settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD

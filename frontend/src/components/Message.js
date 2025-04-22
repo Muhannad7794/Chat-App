@@ -1,3 +1,4 @@
+// Message.js
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Form, Button, Container, Dropdown } from "react-bootstrap";
@@ -14,10 +15,15 @@ const Messages = ({ token, currentUsername }) => {
   // Stable fetchMessages to fix React Hook deps warning
   const fetchMessages = useCallback(async () => {
     try {
+      const params = { chat_room: roomId };
+      if (language !== "original") {
+        params.lang = language; // only pass lang if it's not 'original'
+      }
+
       const response = await axios.get(
         "http://localhost:8002/api/chat/messages/",
         {
-          params: { chat_room: roomId, lang: language },
+          params,
           headers: { Authorization: `Token ${token}` },
         }
       );
@@ -48,17 +54,28 @@ const Messages = ({ token, currentUsername }) => {
       const data = JSON.parse(event.data);
       console.log("[WebSocket] Received:", data);
 
-      if (data.type === "translation_update") {
-        fetchMessages();
-      } else if (data.type === "chat_message") {
+      if (data.type === "chat_message") {
         setMessages((prev) => [
           ...prev,
           {
-            id: data.id || Date.now(),
+            id: data.id || Date.now(), // replace later with actual id if possible
             content: data.message,
             sender: { username: data.username },
           },
         ]);
+      } else if (data.type === "translation_update") {
+        // Live overwrite of last message (or better logic if you include IDs)
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1];
+          if (!lastMessage) return prev;
+
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...lastMessage,
+            content: data.message,
+          };
+          return updated;
+        });
       }
     };
 

@@ -9,6 +9,8 @@ from .dispatch import (
     send_translation_request,
 )
 from .translation_handler import get_language_preference  # only this stays
+from chat.translation_handler import get_translated_result_from_cache
+
 
 import logging
 
@@ -67,6 +69,16 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = "__all__"
         read_only_fields = ["user"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            user_id = request.user.id
+            translated_text = get_translated_result_from_cache(instance.id, user_id)
+            if translated_text:
+                data["content"] = translated_text  # Override original content
+        return data
 
     def create(self, validated_data):
         print("VALIDATED DATA:", validated_data)
