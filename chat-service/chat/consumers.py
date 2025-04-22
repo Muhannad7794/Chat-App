@@ -16,7 +16,6 @@ from chat.translation_handler import get_language_preference
 # queues imports
 from .dispatch import (
     get_rabbit_connection,
-    send_translation_request,
     CHAT_ROOM_CREATED_QUEUE,
     CHAT_ROOM_DELETED_QUEUE,
     CHAT_ROOM_RENAMED_QUEUE,
@@ -26,12 +25,14 @@ from .dispatch import (
     NEW_MESSAGE_QUEUE,
     MESSAGE_PROCESSED_QUEUE,
     TRANSLATION_COMPLETED_QUEUE,
+    LANGUAGE_CHANGE_NOTIFICATIONS_QUEUE,
+    ROOM_RENAMED_NOTIFICATIONS_QUEUE,
+    TRANSLATION_REQUEST_QUEUE,
 )
 
 REDIS_HOST = "redis"
 REDIS_PORT = 6379
 REDIS_DB = 1
-TRANSLATION_REQUEST_QUEUE = "translation_request_queue"
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         logger.debug(
             f"[connect] User {user.username} connected to room {self.room_name}"
+        )
+        logger.info(
+            f"[connect] User connected and added to group: {self.room_group_name}"
         )
 
     async def disconnect(self, close_code):
@@ -137,6 +141,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def translation_update(self, event):
         try:
+            logger.info(
+                f"[WS] Sending translated message to client: {event['message']}"
+            )
             await self.send(
                 text_data=json.dumps(
                     {
@@ -202,10 +209,9 @@ def translation_completed_callback(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
         room_id = data.get("room_id")
-        user_id = data.get("user_id")
         translated_text = data.get("translated_text")
 
-        group_name = f"user_{user_id}_room_{room_id}"
+        group_name = f"chat_{room_id}"
         channel_layer = get_channel_layer()
 
         async_to_sync(channel_layer.group_send)(
@@ -274,16 +280,20 @@ def start_rabbitmq_consumer():
     channel = connection.channel()
 
     queues = {
-        CHAT_ROOM_CREATED_QUEUE: default_callback("chat_room_created"),
-        CHAT_ROOM_DELETED_QUEUE: default_callback("chat_room_deleted"),
-        CHAT_ROOM_RENAMED_QUEUE: default_callback("chat_room_renamed"),
-        MEMBER_REMOVED_QUEUE: default_callback("member_removed"),
-        MEMBER_LEFT_QUEUE: default_callback("member_left"),
-        USER_INVITED_QUEUE: default_callback("user_invited"),
-        NEW_MESSAGE_QUEUE: default_callback("new_message"),
-        MESSAGE_PROCESSED_QUEUE: default_callback("message_processed"),
+        CHAT_ROOM_CREATED_QUEUE: default_callback(CHAT_ROOM_CREATED_QUEUE),
+        CHAT_ROOM_DELETED_QUEUE: default_callback(CHAT_ROOM_DELETED_QUEUE),
+        CHAT_ROOM_RENAMED_QUEUE: default_callback(CHAT_ROOM_RENAMED_QUEUE),
+        MEMBER_REMOVED_QUEUE: default_callback(MEMBER_REMOVED_QUEUE),
+        MEMBER_LEFT_QUEUE: default_callback(MEMBER_LEFT_QUEUE),
+        USER_INVITED_QUEUE: default_callback(USER_INVITED_QUEUE),
+        NEW_MESSAGE_QUEUE: default_callback(NEW_MESSAGE_QUEUE),
+        MESSAGE_PROCESSED_QUEUE: default_callback(MESSAGE_PROCESSED_QUEUE),
+        ROOM_RENAMED_NOTIFICATIONS_QUEUE: default_callback(
+            ROOM_RENAMED_NOTIFICATIONS_QUEUE
+        ),
+        TRANSLATION_REQUEST_QUEUE: default_callback(TRANSLATION_REQUEST_QUEUE),
         TRANSLATION_COMPLETED_QUEUE: translation_completed_callback,  # Special case
-        "language_change_notifications": language_change_callback,
+        LANGUAGE_CHANGE_NOTIFICATIONS_QUEUE: language_change_callback,  # Special case
     }
 
     for queue, handler in queues.items():
