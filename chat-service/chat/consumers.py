@@ -6,6 +6,7 @@ import uuid
 import logging
 import redis  # type: ignore
 import pika  # type: ignore
+import aio_pika  # type: ignore
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -114,10 +115,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "user_id": user_id,
                     "username": username,
                     "room_id": room_id,
+                    "message_id": saved_msg.id,
                 },
             )
 
-            asyncio.create_task(self.trigger_translation(user_id, room_id, message))
+            asyncio.create_task(
+                self.trigger_translation(user_id, room_id, message, saved_msg)
+            )
 
         except json.JSONDecodeError:
             logger.error("[receive] Malformed JSON received")
@@ -133,6 +137,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "message": event["message"],
                         "user_id": event.get("user_id"),
                         "username": event.get("username"),
+                        "room_id": event.get("room_id"),
+                        "message_id": event.get("message_id"),
+                        "timestamp": event.get("timestamp"),
                     }
                 )
             )
@@ -149,13 +156,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         "type": "translation_update",
                         "message": event["message"],
+                        "message_id": event["message_id"],
+                        "room_id": event["room_id"],
+                        "user_id": event["user_id"],
+                        "timestamp": event.get("timestamp"),
                     }
                 )
             )
+            logger.warning(f"[DEBUG] Sending translation to WebSocket: {event}")
+
         except Exception as e:
             logger.exception(f"[translation_update] Failed to send update: {e}")
 
-    async def trigger_translation(self, user_id, room_id, message):
+    async def trigger_translation(self, user_id, room_id, message, saved_msg):
         try:
             lang = await sync_to_async(get_language_preference)(user_id, room_id)
             payload = {
@@ -164,8 +177,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "text": message,
                 "lang": lang,
                 "correlation_id": str(uuid.uuid4()),
+                "message_id": saved_msg.id,
             }
-            await sync_to_async(self.send_to_rabbitmq)(payload)
+            await self.send_to_rabbitmq(payload)
             logger.debug(
                 f"[trigger_translation] Triggered translation for user {user_id} in room {room_id}"
             )
@@ -174,27 +188,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 f"[trigger_translation] Failed to dispatch translation request: {e}"
             )
 
-    def send_to_rabbitmq(self, payload):
+    async def send_to_rabbitmq(self, payload):
         try:
             logger.info(f"[send_to_rabbitmq] Dispatching: {payload}")
-            credentials = pika.PlainCredentials(
-                settings.RABBITMQ_USER, settings.RABBITMQ_PASSWORD
+            connection = await aio_pika.connect_robust(
+                "amqp://{user}:{pwd}@rabbitmq/".format(
+                    user=settings.RABBITMQ_USER,
+                    pwd=settings.RABBITMQ_PASSWORD,
+                )
             )
-            parameters = pika.ConnectionParameters(
-                host="rabbitmq", port=5672, credentials=credentials
-            )
-            connection = pika.BlockingConnection(parameters)
-            channel = connection.channel()
-            channel.queue_declare(queue=TRANSLATION_REQUEST_QUEUE, durable=True)
-            channel.basic_publish(
-                exchange="",
-                routing_key=TRANSLATION_REQUEST_QUEUE,
-                body=json.dumps(payload),
-                properties=pika.BasicProperties(
-                    delivery_mode=2, content_type="application/json"
-                ),
-            )
-            connection.close()
+            async with connection:
+                channel = await connection.channel()
+                await channel.declare_queue(TRANSLATION_REQUEST_QUEUE, durable=True)
+                await channel.default_exchange.publish(
+                    aio_pika.Message(
+                        body=json.dumps(payload).encode(),
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                        content_type="application/json",
+                    ),
+                    routing_key=TRANSLATION_REQUEST_QUEUE,
+                )
+            logger.info(f"[send_to_rabbitmq] Successfully dispatched to queue.")
         except Exception as e:
             logger.exception(f"[send_to_rabbitmq] Error: {e}")
 
@@ -221,9 +235,14 @@ def translation_completed_callback(ch, method, properties, body):
                 "type": "translation_update",
                 "message_id": message_id,
                 "message": translated_text,
+                "room_id": room_id,
+                "user_id": data.get("user_id"),
+                "timestamp": data.get("timestamp"),
             },
         )
-
+        logger.warning(
+            f"[translation_completed_callback] commpleted for msg {message_id}, room {room_id}"
+        )
     except Exception as e:
         logger.error(f"[translation_completed_callback] Error: {e}")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)

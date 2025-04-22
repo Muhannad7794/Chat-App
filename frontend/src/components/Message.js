@@ -12,12 +12,11 @@ const Messages = ({ token, currentUsername }) => {
   const { roomId } = useParams();
   const ws = useRef(null);
 
-  // Stable fetchMessages to fix React Hook deps warning
   const fetchMessages = useCallback(async () => {
     try {
       const params = { chat_room: roomId };
       if (language !== "original") {
-        params.lang = language; // only pass lang if it's not 'original'
+        params.lang = language;
       }
 
       const response = await axios.get(
@@ -27,19 +26,26 @@ const Messages = ({ token, currentUsername }) => {
           headers: { Authorization: `Token ${token}` },
         }
       );
-      setMessages(response.data);
+
+      // Handle fallback to original if translation is missing
+      const formatted = response.data.map((msg) => ({
+        id: msg.id,
+        original_content: msg.content,
+        translated_content: msg.translated_content || null,
+        sender: msg.sender,
+      }));
+
+      setMessages(formatted);
     } catch (error) {
       console.error("Failed to fetch messages:", error);
       alert("Failed to fetch messages");
     }
   }, [roomId, language, token]);
 
-  // Fetch messages on token/room/language changes
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  // Set up WebSocket connection
   useEffect(() => {
     if (!roomId || !token) return;
 
@@ -58,24 +64,20 @@ const Messages = ({ token, currentUsername }) => {
         setMessages((prev) => [
           ...prev,
           {
-            id: data.id || Date.now(), // replace later with actual id if possible
-            content: data.message,
+            id: data.message_id || Date.now(),
+            original_content: data.message,
+            translated_content: null,
             sender: { username: data.username },
           },
         ]);
-      } else if (data.type === "translation_update") {
-        // Live overwrite of last message (or better logic if you include IDs)
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1];
-          if (!lastMessage) return prev;
-
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            ...lastMessage,
-            content: data.message,
-          };
-          return updated;
-        });
+      } else if (data.type === "translation_update" && data.message_id) {
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === data.message_id
+              ? { ...msg, translated_content: data.message }
+              : msg
+          )
+        );
       }
     };
 
@@ -90,9 +92,8 @@ const Messages = ({ token, currentUsername }) => {
     return () => {
       if (ws.current) ws.current.close();
     };
-  }, [roomId, token, fetchMessages]);
+  }, [roomId, token]);
 
-  // Fetch user list for name resolution
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -140,12 +141,24 @@ const Messages = ({ token, currentUsername }) => {
       ws.current.send(payload);
       setNewMessage("");
     } else {
-      console.warn("[WebSocket] Not connected. State:", ws.current?.readyState);
+      console.warn("[WebSocket] Not connected.");
       alert("Message not sent: WebSocket connection is not open.");
     }
   };
 
-  const languages = ["en", "es", "fr", "de", "it", "ru", "zh", "ar", "ja"];
+  const languages = [
+    "original",
+    "en",
+    "es",
+    "fr",
+    "de",
+    "da",
+    "it",
+    "ru",
+    "zh",
+    "ar",
+    "ja",
+  ];
 
   const getUserColor = (username) => {
     if (!username) return "#6c757d";
@@ -220,7 +233,9 @@ const Messages = ({ token, currentUsername }) => {
                 }}
               >
                 <strong>{senderUsername}</strong>
-                <p style={{ margin: 0 }}>{msg.content}</p>
+                <p style={{ margin: 0 }}>
+                  {msg.translated_content || msg.original_content}
+                </p>
               </div>
             </div>
           );
