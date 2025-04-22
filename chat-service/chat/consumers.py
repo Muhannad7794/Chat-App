@@ -210,6 +210,7 @@ def translation_completed_callback(ch, method, properties, body):
 
         room_id = data.get("room_id")
         translated_text = data.get("translated_text")
+        message_id = data.get("message_id")
 
         group_name = f"chat_{room_id}"
         channel_layer = get_channel_layer()
@@ -218,6 +219,7 @@ def translation_completed_callback(ch, method, properties, body):
             group_name,
             {
                 "type": "translation_update",
+                "message_id": message_id,
                 "message": translated_text,
             },
         )
