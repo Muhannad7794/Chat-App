@@ -1,0 +1,85 @@
+name: Integration Tests with Docker Compose
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+
+    env:
+      # Shared RabbitMQ credentials
+      RABBITMQ_DEFAULT_USER: ${{ secrets.RABBITMQ_DEFAULT_USER }}
+      RABBITMQ_DEFAULT_PASS: ${{ secrets.RABBITMQ_DEFAULT_PASS }}
+
+      # Users MySQL DB
+      DATABASE_NAME: ${{ secrets.USERS_DB_NAME }}
+      DATABASE_USER: ${{ secrets.USERS_DB_USER }}
+      DATABASE_PASSWORD: ${{ secrets.USERS_DB_PASSWORD }}
+      MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+
+      # Chat Postgres DB
+      CHAT_POSTGRES_DB: ${{ secrets.CHAT_DB_NAME }}
+      CHAT_POSTGRES_USER: ${{ secrets.CHAT_DB_USER }}
+      CHAT_POSTGRES_PASSWORD: ${{ secrets.CHAT_DB_PASSWORD }}
+      CHAT_POSTGRES_HOST: ${{ secrets.CHAT_DB_HOST }}
+      CHAT_POSTGRES_PORT: ${{ secrets.CHAT_DB_PORT }}
+
+
+      # Azure Translator (if used in tests)
+      AZURE_TRANSLATOR_KEY: ${{ secrets.AZURE_TRANSLATOR_KEY }}
+      AZURE_TRANSLATOR_ENDPOINT: ${{ secrets.AZURE_TRANSLATOR_ENDPOINT }}
+      AZURE_TRANSLATOR_REGION: ${{ secrets.AZURE_TRANSLATOR_REGION }}
+      AZURE_TRANSLATOR_CONTAINER_NAME: ${{ secrets.AZURE_TRANSLATOR_CONTAINER_NAME }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Create `.env` files
+        run: |
+          echo "RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER" > .env
+          echo "RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS" >> .env
+
+          # Root .env used by rabbitmq and users service
+          cat .env
+
+          mkdir -p chat-service && echo "RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER" > chat-service/.env
+          echo "RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS" >> chat-service/.env
+          echo "CHAT_POSTGRES_DB=$CHAT_POSTGRES_DB" >> chat-service/.env
+          echo "CHAT_POSTGRES_USER=$CHAT_POSTGRES_USER" >> chat-service/.env
+          echo "CHAT_POSTGRES_PASSWORD=$CHAT_POSTGRES_PASSWORD" >> chat-service/.env
+
+          mkdir -p translation-service && echo "RABBITMQ_DEFAULT_USER=$RABBITMQ_DEFAULT_USER" > translation-service/.env
+          echo "RABBITMQ_DEFAULT_PASS=$RABBITMQ_DEFAULT_PASS" >> translation-service/.env
+          echo "AZURE_TRANSLATOR_KEY=$AZURE_TRANSLATOR_KEY" >> translation-service/.env
+          echo "AZURE_TRANSLATOR_ENDPOINT=$AZURE_TRANSLATOR_ENDPOINT" >> translation-service/.env
+          echo "AZURE_TRANSLATOR_REGION=$AZURE_TRANSLATOR_REGION" >> translation-service/.env
+
+      - name: Start Docker Compose services
+        run: docker-compose -f docker-compose.yml up -d --build
+
+      - name: Wait for containers to initialize
+        run: |
+          echo "Waiting for services to be healthy..."
+          sleep 30
+          docker-compose ps
+
+      - name: Run integration tests in users-management-service
+        run: docker-compose exec -T users-management-service pytest test/integration_test/ --ds=users_manager.settings
+
+      - name: Run integration tests in chat-service
+        run: docker-compose exec -T chat-service pytest test/integration_test/ --ds=chat_manager.settings
+
+      - name: Run integration tests in translation-service
+        run: docker-compose exec -T translation-service pytest test/integration_test/ --ds=translation_manager.settings
+
+      - name: Tear down
+        if: always()
+        run: docker-compose down -v
