@@ -1,0 +1,49 @@
+name: Run All Unit Tests
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  run-unit-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service:
+          - chat-service
+          - users-management-service
+          - translation-service
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        working-directory: ./${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-django coverage
+
+      - name: Set Django Settings Module
+        run: |
+          if [ "${{ matrix.service }}" = "chat-service" ]; then
+            echo "DJANGO_SETTINGS_MODULE=chat_manager.settings" >> $GITHUB_ENV
+          elif [ "${{ matrix.service }}" = "users-management-service" ]; then
+            echo "DJANGO_SETTINGS_MODULE=users_manager.settings" >> $GITHUB_ENV
+          elif [ "${{ matrix.service }}" = "translation-service" ]; then
+            echo "DJANGO_SETTINGS_MODULE=translation_manager.settings" >> $GITHUB_ENV
+          fi
+
+      - name: Run Unit Tests with Coverage
+        working-directory: ./${{ matrix.service }}
+        run: |
+          coverage run -m pytest test/unit_test/
+          coverage report
