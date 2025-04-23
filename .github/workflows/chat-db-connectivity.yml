@@ -1,0 +1,38 @@
+name: Chat DB Connectivity Test
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  chat-db-connectivity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        working-directory: ./chat-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set Chat DB Environment Variables
+        run: |
+          echo "POSTGRES_DB=${{ secrets.CHAT_DB_NAME }}" >> $GITHUB_ENV
+          echo "POSTGRES_USER=${{ secrets.CHAT_DB_USER }}" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=${{ secrets.CHAT_DB_PASSWORD }}" >> $GITHUB_ENV
+          echo "POSTGRES_HOST=${{ secrets.CHAT_DB_HOST }}" >> $GITHUB_ENV
+          echo "POSTGRES_PORT=${{ secrets.CHAT_DB_PORT }}" >> $GITHUB_ENV
+          echo "DJANGO_SETTINGS_MODULE=chat_manager.settings" >> $GITHUB_ENV
+
+      - name: Test Chat DB Connectivity
+        working-directory: ./chat-service
+        run: python manage.py check --database default

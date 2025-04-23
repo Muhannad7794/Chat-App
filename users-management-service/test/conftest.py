@@ -1,4 +1,4 @@
-import pytest
+import pytest # type: ignore
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 

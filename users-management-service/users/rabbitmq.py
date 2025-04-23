@@ -1,6 +1,6 @@
 # users/rabbitmq.py
 
-import pika
+import pika  # type: ignore[import]
 import json
 from django.conf import settings
 

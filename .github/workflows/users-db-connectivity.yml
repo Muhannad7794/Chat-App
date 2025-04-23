@@ -1,0 +1,38 @@
+name: Users DB Connectivity Test
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  users-db-connectivity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        working-directory: ./users-management-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set Users DB Environment Variables
+        run: |
+          echo "MYSQL_DATABASE=${{ secrets.USERS_DB_NAME }}" >> $GITHUB_ENV
+          echo "MYSQL_USER=${{ secrets.USERS_DB_USER }}" >> $GITHUB_ENV
+          echo "MYSQL_PASSWORD=${{ secrets.USERS_DB_PASSWORD }}" >> $GITHUB_ENV
+          echo "MYSQL_HOST=${{ secrets.USERS_DB_HOST }}" >> $GITHUB_ENV
+          echo "MYSQL_PORT=${{ secrets.USERS_DB_PORT }}" >> $GITHUB_ENV
+          echo "DJANGO_SETTINGS_MODULE=users_manager.settings" >> $GITHUB_ENV
+
+      - name: Test Users DB Connectivity
+        working-directory: ./users-management-service
+        run: python manage.py check --database default

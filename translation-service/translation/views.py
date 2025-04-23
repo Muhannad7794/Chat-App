@@ -8,7 +8,7 @@ import uuid
 import json
 import uuid
 from django.conf import settings
-import pika
+import pika  # type: ignore
 import logging
 
 logger = logging.getLogger(__name__)

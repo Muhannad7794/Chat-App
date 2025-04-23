@@ -1,7 +1,7 @@
 # chat-service/test/E2E_test/test_room_crud_e2e.py
 
 import time
-import pytest # type: ignore
+import pytest  # type: ignore
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
