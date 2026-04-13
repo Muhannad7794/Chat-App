@@ -12,7 +12,7 @@
 		8001
 	],
 	"features": {
-		"ghcr.io/devcontainers/features/powershell:1": {}
+		"ghcr.io/devcontainers/features/powershell:2": {}
 	},
 	"customizations": {
 		"vscode": {
